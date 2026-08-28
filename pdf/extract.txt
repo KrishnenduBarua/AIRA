@@ -1,0 +1,313 @@
+Blockchain Olympiad Bangladesh 2026
+Whitepaper On
+AIRA
+Category: Artificial Intelligence
+Team Name:
+CUET_2122
+Team Members:
+Mahashweta Manjari Barua
+Dipannita Paul Orni
+Krishnendu Barua
+Jannatul Ferdaus
+Fariha Rayhan Mim
+1
+
+Contents
+1 Vision: Making Trust Visible 1
+1.1 The Problem Statement . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 1
+1.2 The Solution: AIRA – An AI-Powered Trust Layer . . . . . . . . . . . . . . . . . . . . 1
+2 Use Case 2
+2.1 Alternative Credit Scoring . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2
+2.2 Fraud, Seasonal and Behavioral Analysis . . . . . . . . . . . . . . . . . . . . . . . . . 3
+2.3 Lender Chatbot and Explainable Decision Support . . . . . . . . . . . . . . . . . . . . . 3
+3 Existing Solutions 3
+4 Risks and Challenges 3
+4.1 Technical and Data Risks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+4.2 Fraud and Score-Gaming Risks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+4.3 Security, Privacy and Fairness Risks . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+4.4 Regulatory, Operational and Business Risks . . . . . . . . . . . . . . . . . . . . . . . . 4
+4.5 Summary Risk Matrix . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+5 Architecture & Infrastructure 5
+5.1 Main Features . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+5.2 Main Components . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+5.3 Main Interactions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+6 Revenue & Distribution 7
+6.1 Revenue Model . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+6.2 Distribution Strategy . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+7 Conclusion 8
+
+Abstract
+Financial exclusion remains a significant challenge in Bangladesh, particularly
+among individuals who have regular financial activity but lack conventional credit
+histories. This project proposes an AI-based alternative credit scoring system that
+evaluates financial behavior using consent-based, identity-verified data from mobile
+financial service transactions. The system analyzes patterns in income stability, sav-
+ings, spending, transaction consistency, and seasonal behavior to generate an inter-
+pretable credit or trust score. It further incorporates anomaly detection, explainable
+assessment, and a lender-facing conversational AI assistant to support human lending
+decisions, while anchoring each score on a blockchain ledger so it remains tamper-
+evident and portable across multiple lenders.
+1 Vision: Making Trust Visible
+1.1 The Problem Statement
+In Bangladesh, millions of economically active individuals remain credit invisible to the formal financial
+system. A tea-stall owner, street vendor, small shopkeeper, seasonal farmer, or home-based entrepreneur
+may earn regularly, save consistently, and pay bills on time, yet still be denied formal credit due to the
+absence of a salary certificate, credit card, or traditional banking history. This creates a fundamental
+paradox of financial inclusion:
+“A person can be financially active without being financially visible.”
+Approximately 70 million Bangladeshis are estimated to fall into the “credit invisible” category, while
+formal account ownership is only 43.3% of adults, leaving an estimated 98 million people financially
+excluded. At the same time, more than 239 million Mobile Financial Services (MFS) accounts generate
+billions of digital transactions annually. Y et much of this behavioral data remains fragmented, siloed, and
+underutilized for credit assessment. Existing alternative-credit initiatives demonstrate that behavioral
+lending is feasible, but some limitations remain:
+• Fragmented Trust: Positive financial behavior with one provider is often not recognized across
+other lenders or platforms.
+• Limited Data Coverage: Single-source models may overlook complementary signals available
+across multiple MFS providers.
+• Unclear Decisions: Many systems provide an approve/reject outcome without clearly explaining the
+factors behind the assessment.
+• Exclusion of Irregular Earners: Conventional models may inadequately assess seasonal workers,
+farmers, small vendors, and thin-history borrowers.
+Core Problem: Bangladesh lacks a unified, comprehensive, explainable and inclusive credit-assessment
+system capable of securely transforming fragmented financial behavior into reliable credit profiles. Con-
+sequently, the system favors those who are already easy to score while leaving the truly credit-invisible
+population underserved.
+1.2 The Solution: AIRA – An AI-Powered Trust Layer
+We proposeAIRA, an AI-powered alternative credit intelligence platform that bridges everyday financial
+behavior and formal credit assessment. With explicit user consent, AIRA combines legitimate behavioral
+signals such as valid MFS transactions. AI analyzes these signals to identify indicators of financial re-
+liability, including payment discipline, income stability, saving behavior, transaction consistency and
+1
+
+legitimate seasonality. These signals contribute to an Alternative Trust Score, giving lenders an addi-
+tional, evidence-based view of an applicant’s creditworthiness.
+AIRA goes beyond generating a score by providing an explainable trust layer between financial behavior
+and lending decisions. A lender-facing AI assistant can explain the factors behind an assessment, distin-
+guish seasonal income from genuine instability, and provide contextual insights for evaluation. The AI
+supports the decision rather than replacing the human lender.
+1.2.1 What Makes AIRA Different
+• Trust That Travels: Financial credibility can extend beyond a single provider, reducing the need to
+rebuild trust when approaching another participating lender.
+• A Complete Financial Picture: Multiple behavioral signals are combined to provide a broader view
+of the applicant than any single financial source can provide.
+• Decisions That Can Be Explained: Lenders can examine the behavioral evidence behind an assess-
+ment through plain-language explanations rather than relying on a black-box score.
+• Credit That Understands Context: Seasonal and thin-history earners are evaluated according to
+their financial context rather than automatically penalized for irregular income patterns.
+• Privacy by Design: Explicit consent, responsible data use, privacy protection, and human oversight
+ensure that greater financial visibility does not compromise user control.
+AIRA therefore shifts credit assessment from asking “What formal financial history does this applicant
+have?” to understanding “What does this applicant’ s financial behavior demonstrate?”
+The result is not automated lending, but a more informed, contextual, and explainable basis for credit
+decisions, particularly for individuals whose financial responsibility is real but whose traditional credit
+footprint is limited.
+2 Use Case
+In Bangladesh, many small business owners, street vendors, farmers, and informal earners have regular
+financial activity but lack the formal credit history required by conventional lending systems. Common
+questions include:
+• How can a lender assess an applicant with no conventional credit history?
+• How can legitimate seasonal income be distinguished from financial instability?
+• How can suspicious or manipulated transaction behavior be identified before lending?
+• Which lenders and organizations can this applicant access today, and what would unlock more?
+AIRA addresses this gap by transforming consent-based alternative financial data into an interpretable
+trust score and lender decision-support system. Key use cases are:
+2.1 Alternative Credit Scoring
+• V erifies applicant identity via an NID cross-check before scoring, enforcing exactly one verified
+identity (one NID) per applicant.
+• Analyzes consent-based MFS transactions to derive income stability, payment consistency, spending,
+savings, and transaction-diversity patterns, generating a normalized trust score and risk tier for credit-
+invisible and thin-file applicants.
+2
+
+• Unlocks a tiered partner directory of lenders as the applicant’s verified history strengthens — visible,
+motivating proof of progress without exposing the score itself.
+• Gives NGOs, MFIs, and small lending organizations an additional credit signal beyond conventional
+financial records..
+2.2 Fraud, Seasonal and Behavioral Analysis
+• Checksum/QR-verifies MFS statements against the issuing provider, rejecting edited or fabricated
+uploads before scoring.
+• Detects suspicious patterns — circular transfers, repeated counterparties, unusual concentrations,
+sudden pre-application balance spikes — and distinguishes legitimate seasonal income from real
+instability.
+• Flags anomalous or insufficiently supported applications for human review rather than fully auto-
+mated decisions.
+2.3 Lender Chatbot and Explainable Decision Support
+• Presents the applicant’s trust score, risk tier, financial behavior, contributing factors, and detected
+anomalies to the authorized lender, who can ask natural-language questions such as:
+– Why is this applicant’s score low?
+– Is the income instability seasonal?
+– What factors are affecting this applicant’s risk?
+• Provides evidence-grounded explanations and recommendations while the authorized human lender
+retains the final decision.
+3 Existing Solutions
+• Traditional Credit Scoring: Formal credit history and bank records, limiting access for credit-
+invisible applicants.
+• MFS and Digital Lending: bKash, Nagad, and Rocket enable digital activity and lending within
+their own ecosystems.
+• Alternative Credit Scoring: Dana Fintech, Agam, Tala, and Credolab use alternative data for scor-
+ing, but none show borrowers which lenders their score currently unlocks.
+4 Risks and Challenges
+AIRA handles sensitive financial data and supports lending decisions, making security, fairness, privacy,
+and regulatory compliance critical requirements.
+4.1 Technical and Data Risks
+• Model Accuracy / Drift: Changing behavior may reduce reliability. Mitigation: V alidation and
+continuous monitoring.
+3
+
+• Data Quality / MFS-API Dependency: Missing or limited data, and reliance on authorized third-
+party access. Mitigation: Preprocessing, missing-data handling, and a modular multi-source data
+layer.
+4.2 Fraud and Score-Gaming Risks
+• Artificial Transactions / Forged Statements: Circular transfers or manipulated documents may
+inflate apparent strength. Mitigation: Transaction-network analysis plus checksum/QR verification
+against the issuing MFS provider, so an edited or fabricated bKash/Nagad statement is rejected before
+it ever reaches scoring.
+• Identity and Score Farming: Duplicate or fraudulent scoring attempts. Mitigation: NID verifica-
+tion with only one verified NID permitted per applicant, alongside rate limits and anomaly detection.
+4.3 Security, Privacy and Fairness Risks
+• Data Exposure / Digital Exclusion: Sensitive histories and cash-dependent thin-file users. Mitiga-
+tion: Encryption and access control, plus a separate thin-file pathway with human review.
+• Bias and Seasonal Misclassification: Models may penalize legitimate patterns. Mitigation: Fair-
+ness evaluation, explainability, and human review.
+4.4 Regulatory, Operational and Business Risks
+• Compliance and Automated Lending: Consent and accountability concerns. Mitigation: Privacy-
+by-design, compliance review, and human final authority.
+• System Availability / Lender Adoption: Outages and institutional hesitance toward AI scores. Mit-
+igation: Monitoring and failover, plus explainability and pilot deployment.
+• LLM Hallucination: Chatbot may generate unsupported explanations. Mitigation: Ground re-
+sponses in SHAP factors and applicant records.
+4.5 Summary Risk Matrix
+Risks are rated High impact where a failure would be difficult to reverse or would directly undermine
+trust in the system - fraud, privacy, bias, and regulatory risk fall here. Risks rated Medium impact are
+ones where an existing mitigation (monitoring, fallback data sources, SHAP grounding, human final
+decision) bounds the damage before it becomes critical.
+Table 1: Summary Risk Matrix for AIRA
+Risk Likelihood Impact
+Model Accuracy / Drift Medium Medium
+Data Quality / API Dependency High Medium
+Fraud and Score Gaming High High
+Data Privacy High High
+Model Bias / Fairness Medium High
+Regulatory Compliance Medium High
+Lender Adoption Medium Medium
+LLM Hallucination Medium Medium
+4
+
+5 Architecture & Infrastructure
+AIRA ’s architecture is designed to deliver secure, explainable, and tamper-resistant credit scoring by
+integrating several specialized modules. These modules work together to turn a borrower’s mobile bank-
+ing history into a trust score, explain that score to lenders in plain language, and keep the entire process
+verifiable and fraud-resistant, all of which is tailored to the unbanked population of Bangladesh.
+5.1 Main Features
+• User & Identity Management: Secure registration, authentication, and session handling for three
+roles — borrowers, lenders, and administrators. Borrowers submit their National ID (NID) during
+onboarding for identity verification, while lender organizations are vetted manually by administrators.
+This ensures secure access control so each party sees only what it is permitted to.
+• AI Credit Scoring & Explainability: Borrowers upload their bKash/Nagad transaction statements,
+from which the system engineers behavioral features and computes a trust score using a machine-
+learning model. Every score is decomposed into human-readable factor categories, so lenders receive
+an explanation rather than an unexplained number.
+• Dual Conversational Assistants: A lender-facing chatbot explains why a score is what it is and
+supports the loan decision, while a borrower-facing chatbot provides only limited, high-level im-
+provement tips. This protects the scoring model from being reverse-engineered while still guiding
+the user.
+• Fraud Control & Score Portability: Suspicious activity is flagged for administrator review and
+bad actors can be blocked, while each finalized score is anchored on a blockchain ledger so it can be
+trusted and reused across multiple lenders without a central authority owning the data.
+5.2 Main Components
+• Frontend (React.js): Provides the user interface for three separate experiences — the Borrower
+App, the Lender App, and the Admin Panel. The Borrower App handles NID and statement upload,
+score progress (badge and category summary), the borrower chatbot, a partner directory, consent
+controls, and notifications. The Lender App handles applicant lookup, the full score-and-tier view,
+the lender “Coach” chatbot, and usage/billing. The Admin Panel handles borrower KYC, lender
+verification, fraud review, and audit oversight. The frontend is optimized for low-bandwidth use to
+remain accessible in rural areas.
+• Backend (Express.js): Implements the server-side logic and secure REST endpoints for authenti-
+cation, consent management, and data processing. It handles statement verification (checksum/QR),
+transaction parsing and feature engineering, and orchestrates calls to the AI/ML layer for scoring. It
+exposes a Lender API (score-query endpoint) for participating NGOs and lending organizations, runs
+the reminder/streak scheduler, performs blockchain anchoring, and manages fraud/anomaly flagging.
+• Database (PostgreSQL): Securely stores user profiles, uploaded statements, parsed transactions,
+score history, tiers, consent logs, and lender query records. It retains historical score records needed
+for borrower progress tracking and for lenders reviewing how an applicant’s profile has changed over
+time.
+• AI/ML Layer:
+– Scoring Model (XGBoost / LightGBM): A gradient-boosted decision tree model that computes
+the trust score from engineered features, kept deterministic and reproducible for lender trust and
+regulatory review.
+5
+
+– SHAP Explainer: Attributes the score to individual features and groups them into readable factor
+categories.
+– LLM Orchestration (LangChain + GPT-5.6 Luna): Powers both chatbots, grounded on the
+SHAP explanation so the language model only explains results and never computes the score.
+The layer is model-agnostic, so any comparable model can be substituted.
+Figure 1: AIRA System Architecture
+External Services:
+• NID Verification Service (e-KYC): V alidates borrower National IDs against the national database;
+a paid, regulated service that the prototype simulates.
+• GPT-5.6 Luna (OpenAI): The external large-language-model API invoked for chatbot responses,
+chosen for its low cost, speed, and strong instruction-following, and configurable through LangChain.
+5.3 Main Interactions
+• Borrower Journey: Registers and verifies identity by submitting their NID, then gives consent and
+uploads a bKash/Nagad statement with a minimum of six months of history. The borrower views a
+simplified tier (Bronze/Silver/Gold/Platinum) and category summary, receives limited improvement
+tips from the borrower chatbot, and gets bill reminders and streaks.
+• Lender Journey: A verified lender looks up an applicant and fetches the score, then views the full
+tier and factor breakdown. The lender uses the “Coach” chatbot to ask why a score is low or what
+loan amount is reasonable, and makes the final decision with real context rather than a bare number.
+• Backend & AI Operations: V alidates sessions, verifies statements, and engineers features from
+raw transactions, then calls the scoring model. SHAP produces the explanation, which is passed as
+6
+
+grounded context to GPT-5.6 Luna for both chatbots. Finalized scores are hashed and anchored on
+the blockchain ledger for cross-lender portability.
+• Admin Operations: V erifies borrower NIDs through the e-KYC service and vets lender organiza-
+tions manually. Reviews fraud/anomaly flags raised by the backend and blocks bad actors, providing
+human oversight over the automated pipeline.
+6 Revenue & Distribution
+6.1 Revenue Model
+AIRA employs a diversified, token-based monetization strategy that keeps basic access affordable for
+small lenders while scaling naturally with usage.
+Freemium Model:
+• Free Tier: A basic trust-score check is enough for a simple approve/reject decision on a small loan
+and is available at no cost, encouraging broad adoption among NGOs, microfinance institutions
+(MFIs), and small lending organizations.
+• Paid Tier (Token-Based): Lenders who need deeper capabilities like the lender-facing “Coach” chat-
+bot analysis, seasonal-adjusted scoring, and bulk/high-volume checking pay using tokens or credits
+that scale with usage. An organization running many checks in a month buys tokens in bulk and
+becomes recurring revenue, while a small lender checking a few borrowers pays almost nothing.
+The token model is deliberately modeled on how modern AI platforms price access — pay-as-you-
+use — so cost always tracks value, and smaller organizations are never priced out. Because the
+prototype itself runs at near-zero cost on an open-source stack with a low-cost language model, this
+model comfortably sustains the platform as adoption grows.
+6.2 Distribution Strategy
+To reach both lenders and unbanked borrowers across Bangladesh, AIRA focuses on the community-
+level organizations that already serve this population:
+• NGO & Microfinance Partnerships: Partner with NGOs, MFIs, and cooperatives already lending
+to rural and low-income communities. These organizations are both AIRA ’s paying customers and
+its channel to reach credit-invisible borrowers.
+• Local Lending Organizations: Onboard small, community-based lenders and samitis that currently
+rely on informal judgment, giving them a structured, explainable score so they can lend more confi-
+dently.
+• Mobile Financial Service Collaboration: Pursue data-access arrangements with bKash and Na-
+gad under the national open-finance and digital-payment framework, enabling smoother onboarding
+through trusted platforms.
+• Pilot & Beta Access: Offer free pilot access to a small group of consenting lenders and borrowers
+to validate accuracy, gather feedback, and build credibility before wider rollout.
+• Regulatory Engagement: Align early with national open-finance and e-KYC frameworks to build
+the compliance credibility that institutional adoption requires.
+7
+
+7 Conclusion
+AIRA addresses a real problem in Bangladesh, where millions of capable people are shut out of formal
+lending simply because they have no traditional financial record. By reading the mobile money activity
+people already generate through mobile banking like bKash and Nagad, AIRA turns everyday behavior
+into a fair, explainable trust score that lending organizations can act on with confidence.
+Its strength lies in balancing intelligence with trust. A machine-learning model produces the score, while
+clear factor breakdowns keep it understandable rather than a black box, and identity verification, fraud
+review, and blockchain-anchored portability keep it honest. By giving lenders a transparent basis to
+decide and borrowers a way to build a financial reputation, AIRA offers a practical path toward financial
+inclusion, one trusted score at a time.
+8

@@ -1,0 +1,38 @@
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.*
+
+# Backend
+backend/node_modules/
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/dist/
+
+# Python / ML
+ml-model/.venv/
+ml-model/__pycache__/
+ml-model/.pytest_cache/
+ml-model/*.pyc
+ml-model/.env
+
+# Blockchain
+blockchain/node_modules/
+blockchain/.env
+blockchain/.env.*
+
+# General
+*.log
+coverage/
+
+# GitHub / local
+.github/
