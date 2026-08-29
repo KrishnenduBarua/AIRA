@@ -8,13 +8,13 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@langchain/core": "^1.2.9",
+    "@langchain/openai": "^1.5.10",
     "axios": "^1.7.7",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
-    "express": "^4.19.2",
     "ethers": "^6.13.5",
-    "@langchain/core": "^0.3.39",
-    "@langchain/openai": "^0.3.17",
+    "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^2.0.0",
