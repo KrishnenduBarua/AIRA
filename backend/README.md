@@ -16,6 +16,17 @@ npm install
 npm run dev
 ```
 
+## Real statement upload
+
+`POST /statements/upload` requires multipart form data, not a JSON filename. In Postman, choose `Body` -> `form-data`, create a field named `statement`, change its type to `File`, and select the PDF from the repository `pdf/` folder. The ML service receives the actual file bytes, extracts PDF text, and derives features from the statement.
+
+PowerShell alternative:
+
+```powershell
+$pdf = "C:\Krish Project\aira\pdf\Customer-App-Statement-fac363e3-98ce-11f1-986d-3da0f7d27034-2026-08-15-23-30-23 (2).pdf"
+curl.exe -X POST -H "Authorization: Bearer $token" -F "statement=@$pdf;type=application/pdf" http://127.0.0.1:4000/statements/upload
+```
+
 ## LLM chatbot endpoints
 
 Both endpoints require a JWT bearer token and accept `question`, `score`, `riskLevel`, `tier`, and `factors` in the JSON body:

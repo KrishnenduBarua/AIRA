@@ -7,7 +7,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import shap
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 from pydantic import BaseModel
 
 app = FastAPI(title='AIRA ML Service', version='1.0.0')
@@ -37,52 +37,62 @@ class PredictionRequest(BaseModel):
     features: dict
 
 
-class StatementVerificationRequest(BaseModel):
-    filename: str
-    fileSize: int
-    mimetype: str
-
-
-class StatementFeatureRequest(BaseModel):
-    filename: str
-    fileSize: int
-    mimetype: str
-
-
 @app.get('/health')
 def health():
     return {'status': 'ok', 'service': 'aira-ml-service'}
 
 
 @app.post('/verify-statement')
-def verify_statement(payload: StatementVerificationRequest):
-    valid = bool(payload.filename.lower().endswith(('.pdf', '.csv', '.xlsx', '.json')))
+async def verify_statement(statement: UploadFile = File(...)):
+    valid = bool(statement.filename.lower().endswith(('.pdf', '.csv', '.xlsx', '.json')))
     return {
         'valid': valid,
         'details': 'Accepted statement format.' if valid else 'Unsupported file type.',
+        'filename': statement.filename,
+    }
+
+
+def derive_features(text: str, file_size: int):
+    import re
+
+    dates = re.findall(r'\b\d{2}-[A-Za-z]{3}-\d{2}\b', text)
+    amounts = [float(value.replace(',', '')) for value in re.findall(r'(?<![A-Za-z])\d[\d,]*\.\d{2}\b', text)]
+    transaction_count = len(dates)
+    average_amount = sum(amounts) / len(amounts) if amounts else 0.0
+    has_bill_payment = len(re.findall(r'pay bill|payment', text, re.IGNORECASE))
+    history_months = max(1, len(set(re.findall(r'\b[A-Za-z]{3}-\d{2}\b', text))))
+
+    return {
+        'months_of_history': history_months,
+        'n_transactions': transaction_count,
+        'income_regularity': round(min(1.0, transaction_count / 30), 4),
+        'avg_monthly_income': round(average_amount, 2),
+        'savings_ratio': round(min(1.0, max(0.0, 1 - average_amount / max(average_amount * 2, 1))), 4),
+        'bill_payment_count': has_bill_payment,
+        'bill_payment_regularity': round(min(1.0, has_bill_payment / max(transaction_count, 1)), 4),
+        'transaction_diversity': round(min(1.0, len(set(re.findall(r'\b(?:Send Money|Payment|Pay Bill|Cash Out|Cash In)\b', text, re.IGNORECASE))) / 5), 4),
+        'spending_to_income_ratio': round(min(1.0, average_amount / max(average_amount * 1.5, 1)), 4),
+        'balance_volatility': round(min(1.0, len(amounts) / max(transaction_count * 3, 1)), 4),
+        'max_single_txn_pct_balance': 1.0 if amounts else 0.0,
+        'circular_transfer_flag': bool(re.search(r'circular|self transfer', text, re.IGNORECASE)),
+        'balance_consistency_pass': bool(amounts),
+        '_source': 'uploaded_statement',
+        '_file_size': file_size,
     }
 
 
 @app.post('/extract-features')
-def extract_features(payload: StatementFeatureRequest):
-    # Demo feature extraction layer for the MVP.
-    # In the real implementation this would parse statements and compute features.
-    feature_map = {
-        'months_of_history': 6,
-        'n_transactions': 145,
-        'income_regularity': 0.82,
-        'avg_monthly_income': 18500,
-        'savings_ratio': 0.31,
-        'bill_payment_count': 12,
-        'bill_payment_regularity': 0.77,
-        'transaction_diversity': 0.68,
-        'spending_to_income_ratio': 0.63,
-        'balance_volatility': 0.41,
-        'max_single_txn_pct_balance': 0.9,
-        'circular_transfer_flag': False,
-        'balance_consistency_pass': True,
-    }
-    return {'features': feature_map}
+async def extract_features(statement: UploadFile = File(...)):
+    from pypdf import PdfReader
+    import io
+
+    content = await statement.read()
+    if statement.filename.lower().endswith('.pdf'):
+        reader = PdfReader(io.BytesIO(content))
+        text = '\n'.join(page.extract_text() or '' for page in reader.pages)
+    else:
+        text = content.decode('utf-8', errors='ignore')
+    return {'filename': statement.filename, 'features': derive_features(text, len(content))}
 
 
 @app.post('/predict')

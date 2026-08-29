@@ -1,6 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const axios = require("axios");
+const FormData = require("form-data");
 const fs = require("fs");
 const path = require("path");
 const { statements, saveStatement } = require("../data/db");
@@ -25,13 +26,15 @@ router.post(
       const filePath = req.file.path;
       const fileBuffer = fs.readFileSync(filePath);
 
+      const verificationForm = new FormData();
+      verificationForm.append("statement", fileBuffer, {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype,
+      });
       const verificationResponse = await axios.post(
         `${mlServiceUrl}/verify-statement`,
-        {
-          filename: req.file.originalname,
-          fileSize: fileBuffer.length,
-          mimetype: req.file.mimetype,
-        },
+        verificationForm,
+        { headers: verificationForm.getHeaders() },
       );
 
       if (!verificationResponse.data.valid) {
@@ -44,13 +47,15 @@ router.post(
         });
       }
 
+      const featuresForm = new FormData();
+      featuresForm.append("statement", fileBuffer, {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype,
+      });
       const featuresResponse = await axios.post(
         `${mlServiceUrl}/extract-features`,
-        {
-          filename: req.file.originalname,
-          fileSize: fileBuffer.length,
-          mimetype: req.file.mimetype,
-        },
+        featuresForm,
+        { headers: featuresForm.getHeaders() },
       );
 
       const statementRecord = {
