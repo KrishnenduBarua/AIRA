@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
+import shap
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -98,11 +100,20 @@ def predict(payload: PredictionRequest):
     label_map = {0: 'low_risk', 1: 'medium_risk', 2: 'high_risk'}
     label = label_map[int(predicted_label_index)]
 
+    explainer = shap.TreeExplainer(MODEL)
+    shap_values = explainer.shap_values(input_df)
+    if isinstance(shap_values, list):
+        contributions = np.asarray(shap_values[int(predicted_label_index)])[0]
+    else:
+        shap_array = np.asarray(shap_values)
+        contributions = (
+            shap_array[0, :, int(predicted_label_index)]
+            if shap_array.ndim == 3
+            else shap_array[0]
+        )
     factor_map = {
-        'income_regularity': float(input_df['income_regularity'].iloc[0]),
-        'savings_ratio': float(input_df['savings_ratio'].iloc[0]),
-        'bill_payment_regularity': float(input_df['bill_payment_regularity'].iloc[0]),
-        'transaction_diversity': float(input_df['transaction_diversity'].iloc[0]),
+        column: round(float(value), 6)
+        for column, value in zip(FEATURE_COLUMNS, contributions)
     }
 
     tier_map = {

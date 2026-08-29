@@ -1,0 +1,102 @@
+const { ChatPromptTemplate } = require("@langchain/core/prompts");
+const { ChatOpenAI } = require("@langchain/openai");
+const { llmApiKey, llmBaseUrl, llmModel } = require("../config");
+
+const FACTOR_KEYS = [
+  "months_of_history",
+  "n_transactions",
+  "income_regularity",
+  "avg_monthly_income",
+  "savings_ratio",
+  "bill_payment_count",
+  "bill_payment_regularity",
+  "transaction_diversity",
+  "spending_to_income_ratio",
+  "balance_volatility",
+  "max_single_txn_pct_balance",
+  "circular_transfer_flag",
+  "balance_consistency_pass",
+];
+
+const lenderPrompt = ChatPromptTemplate.fromMessages([
+  [
+    "system",
+    "You are AIRA Lender Coach. Answer only from the supplied score, risk level, tier, and SHAP factors. Never infer, invent, or discuss raw model weights, hidden features, protected attributes, or information not supplied. Explain uncertainty clearly. Do not recommend automatic approval or rejection; provide decision support only.\n\nScore context:\n{context}",
+  ],
+  ["human", "Lender question: {question}"],
+]);
+
+const borrowerPrompt = ChatPromptTemplate.fromMessages([
+  [
+    "system",
+    "You are AIRA Borrower Coach. Reply only in Bangla. Use only the supplied score, risk level, tier, and SHAP factors. Give high-level, practical, non-exploitable improvement tips. Never reveal model weights, thresholds, formulas, hidden features, security details, or advice to manipulate transactions. Do not promise approval.\n\nScore context:\n{context}",
+  ],
+  ["human", "Borrower question: {question}"],
+]);
+
+function sanitizeFactors(factors = {}) {
+  return FACTOR_KEYS.reduce((result, key) => {
+    const value = Number(factors[key]);
+    if (Number.isFinite(value)) result[key] = value;
+    return result;
+  }, {});
+}
+
+function buildContext({ score, riskLevel, tier, factors }) {
+  return JSON.stringify({
+    score: Number.isFinite(Number(score)) ? Number(score) : null,
+    riskLevel: typeof riskLevel === "string" ? riskLevel : null,
+    tier: typeof tier === "string" ? tier : null,
+    shapFactors: sanitizeFactors(factors),
+  });
+}
+
+function fallbackReply(mode, context) {
+  const factors = JSON.parse(context).shapFactors;
+  const strongest = Object.entries(factors).sort((a, b) => b[1] - a[1])[0];
+
+  if (mode === "borrower") {
+    return strongest
+      ? `আপনার স্কোরের প্রদত্ত কারণগুলোর মধ্যে ${strongest[0]} তুলনামূলকভাবে ভালো দেখা যাচ্ছে। নিয়মিত আয়-ব্যয়ের রেকর্ড রাখুন, সময়মতো বিল পরিশোধ করুন এবং স্থিতিশীল সঞ্চয়ের অভ্যাস বজায় রাখুন।`
+      : "নিয়মিত আয়-ব্যয়ের রেকর্ড রাখুন, সময়মতো বিল পরিশোধ করুন এবং স্থিতিশীল সঞ্চয়ের অভ্যাস বজায় রাখুন।";
+  }
+
+  return strongest
+    ? `The supplied SHAP factors indicate that ${strongest[0]} is relatively stronger (${strongest[1]}). Use this as directional context only; the score should not be treated as an automatic approval or rejection decision.`
+    : "No usable SHAP factors were supplied, so a reliable explanation is not available. Use the score only as decision-support context.";
+}
+
+async function answerQuestion(mode, input) {
+  const context = buildContext(input);
+  const question =
+    typeof input.question === "string" ? input.question.trim() : "";
+  if (!question) throw new Error("question is required");
+
+  if (!llmApiKey) {
+    return {
+      answer: fallbackReply(mode, context),
+      provider: "local-fallback",
+      groundedContext: JSON.parse(context),
+    };
+  }
+
+  const model = new ChatOpenAI({
+    apiKey: llmApiKey,
+    model: llmModel,
+    temperature: 0.2,
+    ...(llmBaseUrl ? { configuration: { baseURL: llmBaseUrl } } : {}),
+  });
+  const prompt = mode === "borrower" ? borrowerPrompt : lenderPrompt;
+  const response = await prompt.pipe(model).invoke({ context, question });
+
+  return {
+    answer:
+      typeof response.content === "string"
+        ? response.content
+        : String(response.content),
+    provider: "langchain",
+    groundedContext: JSON.parse(context),
+  };
+}
+
+module.exports = { answerQuestion, sanitizeFactors };

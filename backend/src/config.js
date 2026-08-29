@@ -8,4 +8,7 @@ module.exports = {
   blockchainRpcUrl: process.env.BLOCKCHAIN_RPC_URL || null,
   blockchainPrivateKey: process.env.BLOCKCHAIN_PRIVATE_KEY || null,
   anchorContractAddress: process.env.ANCHOR_CONTRACT_ADDRESS || null,
+  llmApiKey: process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || null,
+  llmBaseUrl: process.env.LLM_BASE_URL || null,
+  llmModel: process.env.LLM_MODEL || "gpt-4o-mini",
 };

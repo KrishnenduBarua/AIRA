@@ -1,0 +1,392 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+:root {
+  font-family: "DM Sans", sans-serif;
+  color: #18211d;
+  background: #f4f0e8;
+  font-synthesis: none;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(circle at 15% 0%, #dce8df 0, transparent 32rem), #f4f0e8;
+}
+button,
+input {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+.app-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px 32px 70px;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 48px;
+}
+.brand {
+  color: #18211d;
+  text-decoration: none;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin-right: auto;
+}
+.brand span {
+  color: #718078;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 8px;
+}
+.mode-switch {
+  display: flex;
+  gap: 4px;
+  border: 1px solid #cbd4cc;
+  padding: 4px;
+  border-radius: 8px;
+  background: #edf0e9;
+}
+.mode-switch button {
+  border: 0;
+  border-radius: 5px;
+  padding: 8px 14px;
+  background: transparent;
+  color: #617068;
+  font-size: 13px;
+}
+.mode-switch button.active {
+  background: #fffdf8;
+  color: #18211d;
+  box-shadow: 0 1px 3px #18211d1a;
+}
+.text-button,
+.link-button {
+  border: 0;
+  background: transparent;
+  color: #52715f;
+  font-weight: 600;
+}
+.intro {
+  max-width: 740px;
+  padding: 74px 0 45px;
+}
+.eyebrow {
+  color: #5f7968;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin: 0 0 12px;
+}
+h1,
+h2 {
+  font-family: "Space Grotesk", sans-serif;
+  letter-spacing: 0;
+}
+h1 {
+  font-size: clamp(40px, 6vw, 72px);
+  line-height: 1.02;
+  margin: 0;
+  max-width: 740px;
+}
+h2 {
+  font-size: 23px;
+  margin: 0 0 8px;
+}
+.intro-copy {
+  color: #65726c;
+  font-size: 17px;
+  line-height: 1.5;
+  max-width: 540px;
+  margin: 20px 0 0;
+}
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 18px;
+  align-items: start;
+}
+.panel {
+  background: #fffdf8e8;
+  border: 1px solid #d7ded5;
+  border-radius: 8px;
+  padding: 25px;
+  box-shadow: 0 12px 40px #5363540b;
+}
+.panel-heading p:not(.eyebrow) {
+  color: #748078;
+  line-height: 1.5;
+  margin: 0;
+}
+.auth-card {
+  max-width: 470px;
+  margin-top: 10px;
+}
+form {
+  display: grid;
+  gap: 15px;
+  margin-top: 25px;
+}
+label {
+  display: grid;
+  gap: 7px;
+  color: #4d5b53;
+  font-size: 13px;
+  font-weight: 600;
+}
+input {
+  width: 100%;
+  border: 1px solid #cbd5cc;
+  border-radius: 5px;
+  background: #fffefa;
+  color: #18211d;
+  outline: none;
+  padding: 12px 13px;
+}
+input:focus {
+  border-color: #557b62;
+  box-shadow: 0 0 0 3px #557b621a;
+}
+.primary-button,
+.quiet-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border: 0;
+  border-radius: 5px;
+  padding: 12px 15px;
+  font-weight: 700;
+}
+.primary-button {
+  background: #315c43;
+  color: #fffdf8;
+}
+.primary-button:hover {
+  background: #244a34;
+}
+.quiet-button {
+  background: #e9eee8;
+  color: #315c43;
+}
+.link-button {
+  margin-top: 20px;
+  padding: 0;
+  font-size: 13px;
+}
+.error {
+  color: #a04437;
+  font-size: 13px;
+  margin: 14px 0 0;
+}
+.status {
+  color: #466a52;
+  font-size: 13px;
+}
+.consent-row {
+  border-top: 1px solid #e0e5dd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 19px;
+}
+.consent-row div {
+  display: grid;
+  gap: 5px;
+}
+.consent-row span,
+.muted {
+  color: #78837c;
+  font-size: 12px;
+}
+.dropzone {
+  align-items: center;
+  border: 1px dashed #99ae9d;
+  border-radius: 6px;
+  background: #f1f5ee;
+  color: #315c43;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  margin: 23px 0 15px;
+  padding: 28px 15px;
+  text-align: center;
+}
+.dropzone input {
+  display: none;
+}
+.dropzone small {
+  color: #7b887e;
+  font-weight: 400;
+}
+.upload-mark {
+  font-size: 28px;
+  line-height: 1;
+}
+.score-panel {
+  min-height: 250px;
+}
+.score-result {
+  align-items: center;
+  display: flex;
+  gap: 20px;
+  margin: 30px 0 21px;
+}
+.score-number {
+  color: #315c43;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 66px;
+  font-weight: 700;
+  line-height: 1;
+}
+.score-number small {
+  color: #91a096;
+  font-size: 15px;
+  font-weight: 500;
+}
+.score-result p {
+  color: #738078;
+  font-size: 13px;
+  margin: 9px 0 0;
+  text-transform: capitalize;
+}
+.pill {
+  background: #e1eee3;
+  border-radius: 20px;
+  color: #315c43;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+.empty-state {
+  color: #8a948d;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 35px 0 10px;
+  max-width: 310px;
+}
+.factor-list {
+  border-top: 1px solid #e0e5dd;
+}
+.factor {
+  align-items: center;
+  border-bottom: 1px solid #e0e5dd;
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 0;
+  color: #69766e;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+.factor strong {
+  font-size: 13px;
+}
+.positive {
+  color: #32734b;
+}
+.negative {
+  color: #a65342;
+}
+.chat-panel {
+  grid-column: 2;
+}
+.chat-answer {
+  background: #f0f4ed;
+  border-left: 3px solid #87a38d;
+  color: #526159;
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 23px 0 12px;
+  padding: 14px;
+  min-height: 70px;
+}
+.chat-input {
+  display: flex;
+  gap: 7px;
+}
+.chat-input input {
+  min-width: 0;
+}
+.chat-input button {
+  background: #315c43;
+  border: 0;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 22px;
+  min-width: 48px;
+}
+.lender-grid .lookup-panel {
+  grid-column: 1 / -1;
+}
+.lookup-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+  max-width: 600px;
+}
+.lookup-row input {
+  flex: 1;
+}
+.lender-score {
+  grid-column: 1;
+}
+.lender-grid .chat-panel {
+  grid-column: 2;
+  grid-row: 2;
+}
+@media (max-width: 700px) {
+  .app-shell {
+    padding: 16px 18px 45px;
+  }
+  .topbar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .brand {
+    width: 100%;
+  }
+  .brand span {
+    display: none;
+  }
+  .mode-switch {
+    order: 3;
+  }
+  .intro {
+    padding: 48px 0 30px;
+  }
+  .intro-copy {
+    font-size: 15px;
+  }
+  .dashboard-grid {
+    display: flex;
+    flex-direction: column;
+  }
+  .panel {
+    padding: 20px;
+    width: 100%;
+  }
+  .chat-panel,
+  .lender-grid .chat-panel,
+  .lender-score,
+  .lender-grid .lookup-panel {
+    order: initial;
+  }
+  .lookup-row {
+    flex-direction: column;
+  }
+  .score-number {
+    font-size: 56px;
+  }
+}

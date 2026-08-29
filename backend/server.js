@@ -7,6 +7,7 @@ const authRoutes = require("./src/routes/auth");
 const statementRoutes = require("./src/routes/statements");
 const scoreRoutes = require("./src/routes/score");
 const lenderRoutes = require("./src/routes/lender");
+const chatRoutes = require("./src/routes/chat");
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use("/auth", authRoutes);
 app.use("/statements", statementRoutes);
 app.use("/score", scoreRoutes);
 app.use("/lender", lenderRoutes);
+app.use("/chat", chatRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
