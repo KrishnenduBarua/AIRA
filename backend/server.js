@@ -10,6 +10,7 @@ const statementRoutes = require("./src/routes/statements");
 const scoreRoutes = require("./src/routes/score");
 const lenderRoutes = require("./src/routes/lender");
 const chatRoutes = require("./src/routes/chat");
+const { initDatabase } = require("./src/data/db");
 
 const app = express();
 
@@ -34,6 +35,13 @@ app.use((err, req, res, next) => {
     .json({ message: "Internal server error.", details: err.message });
 });
 
-app.listen(port, () => {
-  console.log(`AIRA backend running on http://localhost:${port}`);
-});
+initDatabase()
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`AIRA backend running on http://localhost:${port}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Database initialization failed:", error.message);
+    process.exit(1);
+  });

@@ -1,5 +1,9 @@
 const express = require("express");
-const { getUserById, getLatestScoreByUser } = require("../data/db");
+const {
+  getUserById,
+  getLatestScoreByUser,
+  getFlaggedUsers,
+} = require("../data/db");
 const { requireAuth } = require("../middlewares/validation");
 
 const router = express.Router();
@@ -12,7 +16,7 @@ router.get("/score/:userId", requireAuth, async (req, res) => {
     return res.status(404).json({ message: "User not found." });
   }
 
-  if (user.consentGiven !== true) {
+  if (user.consent_given !== true && user.consentGiven !== true) {
     return res
       .status(403)
       .json({ message: "Consent is required before sharing a lender score." });
@@ -34,6 +38,25 @@ router.get("/score/:userId", requireAuth, async (req, res) => {
     riskLevel: latestScore.risk_label ?? latestScore.riskLevel,
     createdAt: latestScore.created_at ?? latestScore.createdAt,
   });
+});
+
+router.get("/admin/flagged", requireAuth, async (req, res) => {
+  try {
+    const user = await getUserById(req.user.id);
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required." });
+    }
+
+    const flaggedUsers = await getFlaggedUsers();
+    return res.json({ flaggedUsers });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({
+        message: "Failed to load flagged users.",
+        details: error.message,
+      });
+  }
 });
 
 module.exports = router;

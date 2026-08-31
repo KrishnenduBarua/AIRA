@@ -316,6 +316,13 @@ def main():
         "feature_columns": feature_cols,
         "target_order": TARGET_ORDER,
         "best_model": best_name,
+        "score_scale": "0-100 product score",
+        "limitations": [
+            "This model is trained on synthetic transaction patterns, not verified historical repayment outcomes.",
+            "The PDF/CSV parser is a practical extraction layer and may misclassify edge-case bank statement rows.",
+            "The user-facing score is a risk-band score for product UX, not a calibrated credit bureau score.",
+            "Final underwriting decisions should use a regulator-reviewed model with real repayment data.",
+        ],
         "results": candidates,
     }
 

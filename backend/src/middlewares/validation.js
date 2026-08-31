@@ -1,28 +1,24 @@
 function validateRegister(req, res, next) {
-  const { name, email, password, role } = req.body || {};
+  const { name, phone, role } = req.body || {};
 
-  if (!name || !email || !password) {
-    return res
-      .status(400)
-      .json({ message: "name, email, and password are required." });
+  if (!name || !phone) {
+    return res.status(400).json({ message: "name and phone are required." });
   }
 
-  if (!["borrower", "lender"].includes(role || "borrower")) {
+  if (!["borrower", "lender", "admin"].includes(role || "borrower")) {
     return res
       .status(400)
-      .json({ message: "role must be borrower or lender." });
+      .json({ message: "role must be borrower, lender, or admin." });
   }
 
   next();
 }
 
 function validateLogin(req, res, next) {
-  const { email, password } = req.body || {};
+  const { phone, otp } = req.body || {};
 
-  if (!email || !password) {
-    return res
-      .status(400)
-      .json({ message: "email and password are required." });
+  if (!phone || !otp) {
+    return res.status(400).json({ message: "phone and otp are required." });
   }
 
   next();

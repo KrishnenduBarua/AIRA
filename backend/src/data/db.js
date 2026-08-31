@@ -2,13 +2,15 @@ const fs = require("fs");
 const path = require("path");
 const { Pool } = require("pg");
 const { databaseUrl, useInMemoryDb } = require("../config");
+const { hashPassword } = require("../utils/auth");
 
 const users = [
   {
     id: "user_001",
     name: "Demo Borrower",
     email: "borrower@example.com",
-    passwordHash: "demo-password",
+    phoneNumber: "+1234567890",
+    passwordHash: null,
     role: "borrower",
     consentGiven: true,
     nidVerified: true,
@@ -25,6 +27,118 @@ const pool =
     ? new Pool({ connectionString: databaseUrl })
     : null;
 
+async function seedDemoUsers() {
+  const demoUsers = [
+    {
+      id: "user_001",
+      name: "Demo Borrower",
+      email: "borrower@example.com",
+      phoneNumber: "+1234567890",
+      password: "demo-password",
+      role: "borrower",
+      consentGiven: true,
+      nidVerified: true,
+    },
+    {
+      id: "user_002",
+      name: "Demo Lender",
+      email: "lender@example.com",
+      phoneNumber: "+1234567891",
+      password: "lender-password",
+      role: "lender",
+      consentGiven: false,
+      nidVerified: true,
+    },
+    {
+      id: "user_003",
+      name: "Admin User",
+      email: "admin@example.com",
+      phoneNumber: "+1234567892",
+      password: "admin-password",
+      role: "admin",
+      consentGiven: true,
+      nidVerified: true,
+    },
+  ];
+
+  for (const user of demoUsers) {
+    const existing = await getUserByPhone(user.phoneNumber);
+    if (!existing) {
+      await createUser({
+        ...user,
+        passwordHash: null,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  return demoUsers;
+}
+
+async function seedDemoScores() {
+  const demoScores = [
+    {
+      id: "score_user_001",
+      userId: "user_001",
+      score: 30,
+      riskLevel: "high_risk",
+      tier: "Bronze",
+      factors: {
+        income_regularity: 2.7,
+        bill_payment_regularity: 1.97,
+        spending_to_income_ratio: 4.83,
+      },
+    },
+    {
+      id: "score_user_002",
+      userId: "user_002",
+      score: 55,
+      riskLevel: "medium_risk",
+      tier: "Silver",
+      factors: {
+        income_regularity: 1.4,
+        savings_ratio: 0.28,
+        transaction_diversity: 0.9,
+      },
+    },
+    {
+      id: "score_user_003",
+      userId: "user_003",
+      score: 78,
+      riskLevel: "low_risk",
+      tier: "Gold",
+      factors: {
+        avg_monthly_income: 0.4,
+        bill_payment_regularity: 1.2,
+        balance_volatility: 0.3,
+      },
+    },
+  ];
+
+  for (const record of demoScores) {
+    const existing = await getLatestScoreByUser(record.userId);
+    if (!existing || existing.id !== record.id) {
+      await pool.query(
+        `
+          INSERT INTO scores (id, user_id, raw_score, risk_label, tier, factors, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6, NOW())
+          ON CONFLICT (id) DO NOTHING
+        `,
+        [
+          record.id,
+          record.userId,
+          record.score,
+          record.riskLevel,
+          record.tier,
+          JSON.stringify(record.factors || {}),
+        ],
+      );
+    }
+  }
+
+  return demoScores;
+}
+
 async function initDatabase() {
   if (!pool) {
     return { mode: "memory" };
@@ -36,6 +150,8 @@ async function initDatabase() {
   );
 
   await pool.query(schemaSql);
+  await seedDemoUsers();
+  await seedDemoScores();
   return { mode: "postgres" };
 }
 
@@ -43,15 +159,16 @@ async function createUser(user) {
   if (pool) {
     const result = await pool.query(
       `
-        INSERT INTO users (id, name, email, password_hash, role, consent_given, nid_verified, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        INSERT INTO users (id, name, email, phone_number, password_hash, role, consent_given, nid_verified, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
         RETURNING *
       `,
       [
         user.id,
         user.name,
-        user.email,
-        user.passwordHash,
+        user.email || null,
+        user.phoneNumber || null,
+        user.passwordHash || null,
         user.role,
         user.consentGiven,
         user.nidVerified,
@@ -62,6 +179,29 @@ async function createUser(user) {
 
   users.push(user);
   return user;
+}
+
+async function getUserByPhone(phone) {
+  const normalized = String(phone || "").replace(/\s+/g, "");
+  if (!normalized) return null;
+
+  if (pool) {
+    const result = await pool.query(
+      "SELECT * FROM users WHERE phone_number = $1 LIMIT 1",
+      [normalized.startsWith("+") ? normalized : `+${normalized}`],
+    );
+    return result.rows[0] || null;
+  }
+
+  return (
+    users.find((user) => {
+      const current = user.phoneNumber || "";
+      return (
+        current.replace(/\s+/g, "") ===
+        (normalized.startsWith("+") ? normalized : `+${normalized}`)
+      );
+    }) || null
+  );
 }
 
 async function getUserByEmail(email) {
@@ -203,6 +343,59 @@ async function getLatestScoreByUser(userId) {
   );
 }
 
+async function getFlaggedUsers() {
+  if (pool) {
+    const result = await pool.query(
+      `
+        SELECT u.id AS user_id, u.name, u.role, s.raw_score, s.risk_label, s.tier, s.created_at
+        FROM scores s
+        INNER JOIN users u ON u.id = s.user_id
+        WHERE s.risk_label IN ('medium_risk', 'high_risk')
+        ORDER BY s.created_at DESC
+      `,
+    );
+
+    return result.rows.map((row) => ({
+      userId: row.user_id,
+      name: row.name,
+      role: row.role,
+      score: row.raw_score,
+      riskLevel: row.risk_label,
+      tier: row.tier,
+      status: row.risk_label === "high_risk" ? "Manual review" : "Monitor",
+      createdAt: row.created_at,
+    }));
+  }
+
+  return scores
+    .filter((entry) => entry.riskLevel && entry.riskLevel !== "low_risk")
+    .map((entry) => {
+      const user = users.find((candidate) => candidate.id === entry.userId);
+      return {
+        userId: entry.userId,
+        name: user?.name || entry.userId,
+        role: user?.role || "borrower",
+        score: entry.score,
+        riskLevel: entry.riskLevel,
+        tier: entry.tier,
+        status: entry.riskLevel === "high_risk" ? "Manual review" : "Monitor",
+        createdAt: entry.createdAt,
+      };
+    });
+}
+
+async function getStatementsByUser(userId) {
+  if (pool) {
+    const result = await pool.query(
+      `SELECT * FROM statements WHERE user_id = $1 ORDER BY uploaded_at DESC`,
+      [userId],
+    );
+    return result.rows;
+  }
+
+  return statements.filter((entry) => entry.userId === userId);
+}
+
 function snakeCase(value) {
   return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
@@ -215,6 +408,7 @@ module.exports = {
   pool,
   initDatabase,
   createUser,
+  getUserByPhone,
   getUserByEmail,
   getUserById,
   updateUser,
@@ -222,4 +416,7 @@ module.exports = {
   saveConsent,
   saveScore,
   getLatestScoreByUser,
+  getFlaggedUsers,
+  getStatementsByUser,
+  getUserByPhone,
 };

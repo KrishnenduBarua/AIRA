@@ -71,9 +71,13 @@ router.post("/compute", requireAuth, async (req, res) => {
       id: `score_${Date.now()}`,
       userId,
       score: payload.score,
+      rawClassIndex: payload.rawClassIndex,
+      scoreScale: payload.scoreScale,
+      scoreInterpretation: payload.scoreInterpretation,
       tier: payload.tier,
       riskLevel: payload.riskLevel,
       factors: payload.factors || {},
+      limitations: payload.limitations || [],
       createdAt: new Date().toISOString(),
     };
 
@@ -94,9 +98,13 @@ router.post("/compute", requireAuth, async (req, res) => {
       message: "Score computed successfully.",
       userId,
       score: payload.score,
+      rawClassIndex: payload.rawClassIndex,
+      scoreScale: payload.scoreScale,
+      scoreInterpretation: payload.scoreInterpretation,
       tier: payload.tier,
       factors: payload.factors,
       riskLevel: payload.riskLevel,
+      limitations: payload.limitations,
       blockchain: anchor,
     });
   } catch (error) {

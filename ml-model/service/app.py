@@ -13,6 +13,13 @@ from pydantic import BaseModel
 
 app = FastAPI(title='AIRA ML Service', version='1.0.0')
 
+MODEL_LIMITATIONS = [
+    'This model is trained on synthetic transaction patterns, not real repayment outcomes.',
+    'The statement parser is a practical extraction layer and may misclassify edge-case PDF rows or uncommon transaction labels.',
+    'The returned display score is a risk-band score for product UX, not a calibrated consumer credit bureau score.',
+    'Final underwriting decisions should use a regulator-reviewed model with longitudinal repayment data.',
+]
+
 MODEL_PATH = Path(__file__).resolve().parent.parent / 'artifacts' / 'xgboost.joblib'
 FEATURE_COLUMNS = [
     'months_of_history',
@@ -195,6 +202,15 @@ async def extract_features(statement: UploadFile = File(...)):
     return {'filename': statement.filename, 'features': features}
 
 
+def risk_to_display_score(label: str) -> int:
+    band_map = {
+        'low_risk': 78,
+        'medium_risk': 55,
+        'high_risk': 30,
+    }
+    return band_map.get(label, 50)
+
+
 @app.post('/predict')
 def predict(payload: PredictionRequest):
     if MODEL is None:
@@ -209,6 +225,7 @@ def predict(payload: PredictionRequest):
     predicted_label_index = MODEL.predict(input_df)[0]
     label_map = {0: 'low_risk', 1: 'medium_risk', 2: 'high_risk'}
     label = label_map[int(predicted_label_index)]
+    display_score = risk_to_display_score(label)
 
     explainer = shap.TreeExplainer(MODEL)
     shap_values = explainer.shap_values(input_df)
@@ -234,10 +251,18 @@ def predict(payload: PredictionRequest):
 
     return {
         'userId': payload.userId,
-        'score': round(float(predicted_label_index), 2),
+        'rawClassIndex': int(predicted_label_index),
+        'score': display_score,
+        'scoreScale': '0-100 product score',
+        'scoreInterpretation': {
+            'low_risk': 'Good risk profile',
+            'medium_risk': 'Moderate risk profile',
+            'high_risk': 'Higher risk profile',
+        }[label],
         'riskLevel': label,
         'tier': tier_map[label],
         'factors': factor_map,
+        'limitations': MODEL_LIMITATIONS,
     }
 
 

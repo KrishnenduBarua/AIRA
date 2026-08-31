@@ -57,6 +57,12 @@ function App() {
           >
             Lender
           </button>
+          <button
+            className={mode === "admin" ? "active" : ""}
+            onClick={() => setMode("admin")}
+          >
+            Admin
+          </button>
         </div>
         {session && (
           <button className="text-button" onClick={() => setSession(null)}>
@@ -79,8 +85,10 @@ function App() {
       </section>
       {mode === "borrower" ? (
         <BorrowerView session={session} setSession={setSession} />
-      ) : (
+      ) : mode === "lender" ? (
         <LenderView session={session} setSession={setSession} />
+      ) : (
+        <AdminView session={session} setSession={setSession} />
       )}
     </main>
   );
@@ -88,29 +96,47 @@ function App() {
 
 function AuthCard({ role, onSuccess }) {
   const [registering, setRegistering] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [otpSent, setOtpSent] = useState(false);
+  const [form, setForm] = useState({ name: "", phone: "", otp: "" });
   const [error, setError] = useState("");
+
   const submit = async (event) => {
     event.preventDefault();
     setError("");
     try {
-      const data = await request(
-        `/auth/${registering ? "register" : "login"}`,
-        { method: "POST", body: JSON.stringify({ ...form, role }) },
-      );
+      const payload = { ...form, role };
+      const endpoint = otpSent ? "/auth/login" : "/auth/register";
+      const data = await request(endpoint, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      if (!otpSent) {
+        setOtpSent(true);
+        setForm((previous) => ({ ...previous, otp: "" }));
+        return;
+      }
+
       onSuccess(data);
     } catch (err) {
       setError(err.message);
     }
   };
+
   return (
     <section className="panel auth-card">
       <div className="panel-heading">
         <p className="eyebrow">WELCOME TO AIRA</p>
-        <h2>{registering ? "Create your profile" : "Sign in to continue"}</h2>
+        <h2>
+          {otpSent
+            ? "Verify your phone"
+            : registering
+              ? "Create your profile"
+              : "Sign in to continue"}
+        </h2>
       </div>
       <form onSubmit={submit}>
-        {registering && (
+        {!otpSent && registering && (
           <label>
             Full name
             <input
@@ -122,34 +148,43 @@ function AuthCard({ role, onSuccess }) {
           </label>
         )}
         <label>
-          Email
+          Phone number
           <input
             required
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            placeholder="you@example.com"
+            type="tel"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            placeholder="+1234567890"
           />
         </label>
-        <label>
-          Password
-          <input
-            required
-            type="password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            placeholder="At least 6 characters"
-          />
-        </label>
+        {otpSent && (
+          <label>
+            OTP code
+            <input
+              required
+              value={form.otp}
+              onChange={(e) => setForm({ ...form, otp: e.target.value })}
+              placeholder="Enter 6-digit code"
+            />
+          </label>
+        )}
         {error && <p className="error">{error}</p>}
         <button className="primary-button" type="submit">
-          {registering ? "Create account" : "Sign in"}
+          {otpSent
+            ? "Verify and continue"
+            : registering
+              ? "Send OTP"
+              : "Send OTP"}
           <span>→</span>
         </button>
       </form>
       <button
         className="link-button"
-        onClick={() => setRegistering(!registering)}
+        onClick={() => {
+          setOtpSent(false);
+          setRegistering(!registering);
+          setForm({ name: "", phone: "", otp: "" });
+        }}
       >
         {registering
           ? "Already have an account? Sign in"
@@ -293,7 +328,7 @@ function ScoreCard({ score }) {
         <div className="score-result">
           <div className="score-number">
             {score.score}
-            <small>/ 2</small>
+            <small>/ 100</small>
           </div>
           <div>
             <span className="pill">{score.tier}</span>
@@ -373,6 +408,86 @@ function LenderView({ session, setSession }) {
   if (!session) return <AuthCard role="lender" onSuccess={setSession} />;
   return <LenderDashboard session={session} />;
 }
+
+function AdminView({ session, setSession }) {
+  if (!session) return <AuthCard role="admin" onSuccess={setSession} />;
+  return <AdminDashboard session={session} />;
+}
+
+function AdminDashboard({ session }) {
+  const [flaggedUsers, setFlaggedUsers] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const loadFlagged = async () => {
+      try {
+        const result = await request("/lender/admin/flagged", {
+          headers: { Authorization: `Bearer ${session.token}` },
+        });
+        setFlaggedUsers(result.flaggedUsers || []);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFlagged();
+  }, [session.token]);
+
+  return (
+    <div className="dashboard-grid admin-grid">
+      <section className="panel admin-panel">
+        <div className="panel-heading">
+          <p className="eyebrow">ADMIN MONITOR</p>
+          <h2>Flagged borrower overview</h2>
+          <p>Operational view of exposure and review status.</p>
+        </div>
+        {loading && <p className="muted">Loading flagged records…</p>}
+        {error && <p className="error">{error}</p>}
+        {!loading && !error && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Risk</th>
+                  <th>Score</th>
+                  <th>Tier</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {flaggedUsers.length ? (
+                  flaggedUsers.map((item) => (
+                    <tr key={item.userId}>
+                      <td>
+                        <strong>{item.userId}</strong>
+                        <span>{item.name}</span>
+                      </td>
+                      <td>{item.riskLevel?.replace("_", " ") || "—"}</td>
+                      <td>{item.score ?? "—"}</td>
+                      <td>{item.tier || "—"}</td>
+                      <td>{item.status || "Monitor"}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" className="muted">
+                      No flagged users to display.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function LenderDashboard({ session }) {
   const [userId, setUserId] = useState("");
   const [score, setScore] = useState(null);
@@ -429,7 +544,7 @@ function LenderDashboard({ session }) {
             <div className="score-result">
               <div className="score-number">
                 {score.score}
-                <small>/ 2</small>
+                <small>/ 100</small>
               </div>
               <div>
                 <span className="pill">{score.tier}</span>

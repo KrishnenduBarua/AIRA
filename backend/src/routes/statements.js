@@ -4,12 +4,27 @@ const axios = require("axios");
 const FormData = require("form-data");
 const fs = require("fs");
 const path = require("path");
-const { statements, saveStatement } = require("../data/db");
+const {
+  statements,
+  saveStatement,
+  getStatementsByUser,
+} = require("../data/db");
 const { requireAuth } = require("../middlewares/validation");
 const { mlServiceUrl } = require("../config");
 
 const router = express.Router();
 const upload = multer({ dest: path.join(__dirname, "..", "uploads") });
+
+router.get("/mine", requireAuth, async (req, res) => {
+  try {
+    const rows = await getStatementsByUser(req.user.id);
+    return res.json({ statements: rows });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to load statements.", details: error.message });
+  }
+});
 
 router.post(
   "/upload",
