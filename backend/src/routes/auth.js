@@ -316,7 +316,8 @@ router.post(
       phone: normalizedPhone,
       role: user.role,
     });
-    setSessionCookie(res, token);
+    clearSessionCookie(res);
+    setSessionCookie(res, token, user.role);
 
     return res.status(201).json({
       message: "Borrower account created successfully.",
@@ -363,6 +364,7 @@ router.post("/login", validateLogin, async (req, res) => {
     phone: normalizedPhone,
     role: user.role,
   });
+  clearSessionCookie(res);
   setSessionCookie(res, token, user.role);
 
   return res.json({

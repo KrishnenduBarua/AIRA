@@ -1,4 +1,8 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+export const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== "undefined"
+    ? `http://${window.location.hostname}:4000`
+    : "http://localhost:4000");
 
 export async function request(path, options = {}) {
   const isFormData =
@@ -17,6 +21,13 @@ export async function request(path, options = {}) {
     ? await response.json().catch(() => ({}))
     : {};
 
-  if (!response.ok) throw new Error(data.message || "Something went wrong.");
+  if (!response.ok) {
+    const detail =
+      typeof data.details === "string"
+        ? data.details
+        : data.details?.detail || data.details?.message || "";
+    const message = data.message || "Something went wrong.";
+    throw new Error(detail && detail !== message ? `${message} ${detail}` : message);
+  }
   return data;
 }

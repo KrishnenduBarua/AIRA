@@ -77,3 +77,17 @@ CREATE TABLE IF NOT EXISTS scores (
   factors JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS loan_requests (
+  id TEXT PRIMARY KEY,
+  borrower_id TEXT NOT NULL REFERENCES users(id),
+  lender_id TEXT NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  reviewed_at TIMESTAMP
+);
+
+-- A borrower may hold only one open request per lender, but may re-apply
+-- after that lender has accepted or declined the previous one.
+CREATE UNIQUE INDEX IF NOT EXISTS loan_requests_open_unique
+  ON loan_requests (borrower_id, lender_id) WHERE status = 'pending';

@@ -11,6 +11,7 @@ const statements = [];
 const scores = [];
 const consentRecords = [];
 const lenderApplications = [];
+const loanRequests = [];
 
 function mapUserRow(row) {
   if (!row) return null;
@@ -48,13 +49,42 @@ function mapLenderApplicationRow(row) {
   };
 }
 
+function mapLoanRequestRow(row) {
+  if (!row) return null;
+
+  return {
+    ...row,
+    borrowerId: row.borrowerId ?? row.borrower_id,
+    lenderId: row.lenderId ?? row.lender_id,
+    createdAt: row.createdAt ?? row.created_at,
+    reviewedAt: row.reviewedAt ?? row.reviewed_at,
+  };
+}
+
 const pool =
   databaseUrl && !useInMemoryDb
     ? new Pool({ connectionString: databaseUrl })
     : null;
 
+async function ensureDefaultAdmin() {
+  const adminPhone = normalizePhone("01882373777");
+  if (await getUserByPhone(adminPhone)) return;
+
+  await createUser({
+    id: "admin_default",
+    name: "AIRA Administrator",
+    email: null,
+    phoneNumber: adminPhone,
+    passwordHash: hashPassword("1234"),
+    role: "admin",
+    consentGiven: true,
+    nidVerified: true,
+  });
+}
+
 async function initDatabase() {
   if (!pool) {
+    await ensureDefaultAdmin();
     return { mode: "memory" };
   }
 
@@ -83,19 +113,7 @@ async function initDatabase() {
   await pool.query(
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_back_url TEXT;",
   );
-  const adminPhone = normalizePhone("01882373777");
-  if (!(await getUserByPhone(adminPhone))) {
-    await createUser({
-      id: "admin_default",
-      name: "AIRA Administrator",
-      email: null,
-      phoneNumber: adminPhone,
-      passwordHash: hashPassword("1234"),
-      role: "admin",
-      consentGiven: true,
-      nidVerified: true,
-    });
-  }
+  await ensureDefaultAdmin();
   return { mode: "postgres" };
 }
 
@@ -523,6 +541,179 @@ async function getStatementsByUser(userId) {
   return statements.filter((entry) => entry.userId === userId);
 }
 
+async function getStatementById(statementId) {
+  if (pool) {
+    const result = await pool.query(
+      "SELECT * FROM statements WHERE id = $1 LIMIT 1",
+      [statementId],
+    );
+    return result.rows[0] || null;
+  }
+
+  return statements.find((entry) => entry.id === statementId) || null;
+}
+
+async function getLenderDirectory() {
+  if (pool) {
+    const result = await pool.query(
+      `SELECT id, name, created_at FROM users
+       WHERE role = 'lender' AND password_hash IS NOT NULL
+       ORDER BY name ASC`,
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      joinedAt: row.created_at,
+    }));
+  }
+
+  return users
+    .filter((user) => user.role === "lender" && user.passwordHash)
+    .map((user) => ({
+      id: user.id,
+      name: user.name,
+      joinedAt: user.createdAt,
+    }))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+
+async function createLoanRequest({ borrowerId, lenderId }) {
+  const record = {
+    id: `loan_req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    borrowerId,
+    lenderId,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+    reviewedAt: null,
+  };
+
+  if (pool) {
+    const result = await pool.query(
+      `INSERT INTO loan_requests (id, borrower_id, lender_id, status, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING *`,
+      [record.id, record.borrowerId, record.lenderId, record.status],
+    );
+    return mapLoanRequestRow(result.rows[0]);
+  }
+
+  loanRequests.push(record);
+  return record;
+}
+
+async function getOpenLoanRequest(borrowerId, lenderId) {
+  if (pool) {
+    const result = await pool.query(
+      `SELECT * FROM loan_requests
+       WHERE borrower_id = $1 AND lender_id = $2 AND status = 'pending'
+       LIMIT 1`,
+      [borrowerId, lenderId],
+    );
+    return mapLoanRequestRow(result.rows[0]);
+  }
+
+  return (
+    loanRequests.find(
+      (item) =>
+        item.borrowerId === borrowerId &&
+        item.lenderId === lenderId &&
+        item.status === "pending",
+    ) || null
+  );
+}
+
+async function getLoanRequestById(requestId) {
+  if (pool) {
+    const result = await pool.query(
+      "SELECT * FROM loan_requests WHERE id = $1 LIMIT 1",
+      [requestId],
+    );
+    return mapLoanRequestRow(result.rows[0]);
+  }
+
+  return loanRequests.find((item) => item.id === requestId) || null;
+}
+
+async function getLoanRequestsByBorrower(borrowerId) {
+  if (pool) {
+    const result = await pool.query(
+      `SELECT r.*, u.name AS lender_name
+       FROM loan_requests r
+       INNER JOIN users u ON u.id = r.lender_id
+       WHERE r.borrower_id = $1
+       ORDER BY r.created_at DESC`,
+      [borrowerId],
+    );
+    return result.rows.map((row) => ({
+      ...mapLoanRequestRow(row),
+      lenderName: row.lender_name,
+    }));
+  }
+
+  return loanRequests
+    .filter((item) => item.borrowerId === borrowerId)
+    .map((item) => ({
+      ...item,
+      lenderName:
+        users.find((user) => user.id === item.lenderId)?.name || item.lenderId,
+    }))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+async function getLoanRequestsByLender(lenderId) {
+  if (pool) {
+    const result = await pool.query(
+      `SELECT r.*, u.name AS borrower_name, u.phone_number AS borrower_phone,
+              u.nid_verified AS borrower_nid_verified
+       FROM loan_requests r
+       INNER JOIN users u ON u.id = r.borrower_id
+       WHERE r.lender_id = $1
+       ORDER BY r.created_at DESC`,
+      [lenderId],
+    );
+    return result.rows.map((row) => ({
+      ...mapLoanRequestRow(row),
+      borrowerName: row.borrower_name,
+      borrowerPhone: row.borrower_phone,
+      borrowerNidVerified: row.borrower_nid_verified,
+    }));
+  }
+
+  return loanRequests
+    .filter((item) => item.lenderId === lenderId)
+    .map((item) => {
+      const borrower = users.find((user) => user.id === item.borrowerId);
+      return {
+        ...item,
+        borrowerName: borrower?.name || item.borrowerId,
+        borrowerPhone: borrower?.phoneNumber || null,
+        borrowerNidVerified: Boolean(borrower?.nidVerified),
+      };
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+async function updateLoanRequestStatus(requestId, status) {
+  if (pool) {
+    const result = await pool.query(
+      `UPDATE loan_requests SET status = $1, reviewed_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [status, requestId],
+    );
+    return mapLoanRequestRow(result.rows[0]);
+  }
+
+  const index = loanRequests.findIndex((item) => item.id === requestId);
+  if (index < 0) return null;
+
+  loanRequests[index] = {
+    ...loanRequests[index],
+    status,
+    reviewedAt: new Date().toISOString(),
+  };
+  return loanRequests[index];
+}
+
 function snakeCase(value) {
   return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
@@ -533,6 +724,7 @@ module.exports = {
   scores,
   consentRecords,
   lenderApplications,
+  loanRequests,
   pool,
   initDatabase,
   createUser,
@@ -552,4 +744,12 @@ module.exports = {
   getLatestScoreByUser,
   getFlaggedUsers,
   getStatementsByUser,
+  getStatementById,
+  getLenderDirectory,
+  createLoanRequest,
+  getOpenLoanRequest,
+  getLoanRequestById,
+  getLoanRequestsByBorrower,
+  getLoanRequestsByLender,
+  updateLoanRequestStatus,
 };

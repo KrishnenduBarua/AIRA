@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { request } from "../api";
+import { useCallback, useEffect, useState } from "react";
+import { API_URL, request } from "../api";
 
 export default function LenderDashboard({ session, onLogout }) {
   const [borrowerId, setBorrowerId] = useState("");
@@ -10,6 +10,62 @@ export default function LenderDashboard({ session, onLogout }) {
   const [chatAnswer, setChatAnswer] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
+  const [loanRequests, setLoanRequests] = useState([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [requestDetail, setRequestDetail] = useState(null);
+  const [requestError, setRequestError] = useState("");
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [deciding, setDeciding] = useState(false);
+
+  const loadLoanRequests = useCallback(async () => {
+    try {
+      const data = await request("/loans/requests");
+      setLoanRequests(data.requests || []);
+      setPendingCount(data.pendingCount || 0);
+      setRequestError("");
+    } catch (error) {
+      setRequestError(error.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLoanRequests();
+  }, [loadLoanRequests]);
+
+  const openRequest = async (requestId) => {
+    setSelectedRequest(requestId);
+    setRequestDetail(null);
+    setRequestError("");
+    setDetailLoading(true);
+
+    try {
+      setRequestDetail(await request(`/loans/requests/${requestId}`));
+    } catch (error) {
+      setRequestError(error.message);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const decide = async (status) => {
+    if (!selectedRequest) return;
+    setDeciding(true);
+    setRequestError("");
+
+    try {
+      await request(`/loans/requests/${selectedRequest}/decision`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      });
+      await loadLoanRequests();
+      await openRequest(selectedRequest);
+    } catch (error) {
+      setRequestError(error.message);
+    } finally {
+      setDeciding(false);
+    }
+  };
 
   const loadBorrowerScore = async () => {
     if (!borrowerId.trim()) {
@@ -135,6 +191,206 @@ export default function LenderDashboard({ session, onLogout }) {
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
+              View loan requests
+            </p>
+            {pendingCount > 0 && (
+              <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
+                {pendingCount} new
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-sm text-slate-600">
+            Borrowers who applied to your organization. Open a request to verify
+            their profile, statements, and trust score.
+          </p>
+
+          {requestError && (
+            <p className="mt-4 text-sm text-red-600">{requestError}</p>
+          )}
+
+          <div className="mt-4 space-y-3">
+            {loanRequests.length === 0 && !requestError && (
+              <p className="text-sm text-slate-500">
+                No loan requests have been received yet.
+              </p>
+            )}
+
+            {loanRequests.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => openRequest(item.id)}
+                className={`flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border p-4 text-left transition ${
+                  selectedRequest === item.id
+                    ? "border-brand-500 bg-brand-50"
+                    : "border-slate-200 bg-slate-50 hover:border-brand-300"
+                }`}
+              >
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    {item.borrowerName}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {item.borrowerPhone} ·{" "}
+                    {item.borrowerNidVerified ? "NID verified" : "NID pending"}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
+                    item.status === "pending"
+                      ? "bg-amber-100 text-amber-800"
+                      : item.status === "accepted"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {item.status}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {detailLoading && (
+            <p className="mt-4 text-sm text-slate-500">Loading profile...</p>
+          )}
+
+          {requestDetail && (
+            <div className="mt-6 space-y-4 rounded-xl border border-slate-200 p-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
+                  Borrower profile
+                </p>
+                <h3 className="mt-2 text-xl font-bold text-slate-900">
+                  {requestDetail.borrower.name}
+                </h3>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ["Phone", requestDetail.borrower.phone],
+                  ["NID number", requestDetail.borrower.nidNumber],
+                  ["Date of birth", requestDetail.borrower.dateOfBirth],
+                  [
+                    "Identity",
+                    requestDetail.borrower.nidVerified ? "Verified" : "Pending",
+                  ],
+                  ["Address", requestDetail.borrower.permanentAddress],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                  >
+                    <p className="text-xs text-slate-500">{label}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {value || "—"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  Trust score
+                </p>
+                {requestDetail.score ? (
+                  <div className="mt-2 rounded-lg border border-brand-100 bg-brand-50 p-4">
+                    <div className="flex items-end gap-3">
+                      <span className="text-3xl font-bold text-slate-900">
+                        {requestDetail.score.score}
+                      </span>
+                      <span className="text-sm text-slate-600">
+                        {requestDetail.score.riskLevel} ·{" "}
+                        {requestDetail.score.tier}
+                      </span>
+                    </div>
+                    <div className="mt-3 space-y-1">
+                      {Object.entries(requestDetail.score.factors || {})
+                        .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+                        .map(([factor, value]) => (
+                          <div
+                            key={factor}
+                            className="flex justify-between gap-3 text-xs"
+                          >
+                            <span className="text-slate-600">{factor}</span>
+                            <span
+                              className={`font-semibold ${Number(value) >= 0 ? "text-green-700" : "text-red-600"}`}
+                            >
+                              {Number(value).toFixed(4)}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">
+                    This borrower has not computed a trust score yet.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  Uploaded statements
+                </p>
+                {requestDetail.statements.length === 0 && (
+                  <p className="mt-2 text-sm text-slate-500">
+                    No statements uploaded.
+                  </p>
+                )}
+                <div className="mt-2 space-y-2">
+                  {requestDetail.statements.map((statement) => (
+                    <div
+                      key={statement.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {statement.filename}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {statement.verified ? "Verified" : "Unverified"}
+                        </p>
+                      </div>
+                      <a
+                        href={`${API_URL}/loans/requests/${requestDetail.request.id}/statements/${statement.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+                      >
+                        View statement
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {requestDetail.request.status === "pending" && (
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => decide("accepted")}
+                    disabled={deciding}
+                    className="flex-1 rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    Select for loan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => decide("declined")}
+                    disabled={deciding}
+                    className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
+                  >
+                    Decline
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

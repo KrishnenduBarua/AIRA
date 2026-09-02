@@ -10,11 +10,26 @@ const statementRoutes = require("./src/routes/statements");
 const scoreRoutes = require("./src/routes/score");
 const lenderRoutes = require("./src/routes/lender");
 const chatRoutes = require("./src/routes/chat");
+const loanRoutes = require("./src/routes/loans");
 const { initDatabase } = require("./src/data/db");
 
 const app = express();
 
-app.use(cors({ origin: "http://localhost:4173", credentials: true }));
+const localFrontendOrigin =
+  /^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}):4173$/;
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || localFrontendOrigin.test(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Origin not allowed by CORS"));
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json({ limit: "10mb" }));
 app.use(morgan("dev"));
 
@@ -27,6 +42,7 @@ app.use("/statements", statementRoutes);
 app.use("/score", scoreRoutes);
 app.use("/lender", lenderRoutes);
 app.use("/chat", chatRoutes);
+app.use("/loans", loanRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

@@ -17,6 +17,8 @@ backend/.env
 backend/.env.*
 !backend/.env.example
 backend/dist/
+# Borrower-uploaded NID images and bank statements must never be committed.
+backend/src/uploads/
 
 # Python / ML
 ml-model/.venv/

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { request } from "../api";
 
 export default function BorrowerDashboard({ session, onLogout }) {
@@ -9,6 +9,9 @@ export default function BorrowerDashboard({ session, onLogout }) {
   const [scoreData, setScoreData] = useState(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [lenders, setLenders] = useState([]);
+  const [lendersError, setLendersError] = useState("");
+  const [requestingId, setRequestingId] = useState("");
   const [chatQuestion, setChatQuestion] = useState("");
   const [chatAnswer, setChatAnswer] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -29,6 +32,37 @@ export default function BorrowerDashboard({ session, onLogout }) {
       active = false;
     };
   }, [session.user.id]);
+
+  const loadLenders = useCallback(async () => {
+    try {
+      const data = await request("/loans/lenders");
+      setLenders(data.lenders || []);
+      setLendersError("");
+    } catch (error) {
+      setLendersError(error.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLenders();
+  }, [loadLenders]);
+
+  const sendLoanRequest = async (lenderId) => {
+    setLendersError("");
+    setRequestingId(lenderId);
+
+    try {
+      await request("/loans/requests", {
+        method: "POST",
+        body: JSON.stringify({ lenderId }),
+      });
+      await loadLenders();
+    } catch (error) {
+      setLendersError(error.message);
+    } finally {
+      setRequestingId("");
+    }
+  };
 
   const updateConsent = async () => {
     const nextConsent = !consent;
@@ -200,6 +234,79 @@ export default function BorrowerDashboard({ session, onLogout }) {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
+              Available lenders
+            </p>
+            <span className="text-xs text-slate-500">
+              {lenders.length} partner{lenders.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-slate-600">
+            Send a loan request to a partner lender. They will be able to review
+            your profile, statements, and trust score.
+          </p>
+
+          {lendersError && (
+            <p className="mt-4 text-sm text-red-600">{lendersError}</p>
+          )}
+
+          <div className="mt-4 space-y-3">
+            {lenders.length === 0 && !lendersError && (
+              <p className="text-sm text-slate-500">
+                No partner lenders are available yet.
+              </p>
+            )}
+
+            {lenders.map((lender) => (
+              <div
+                key={lender.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold uppercase text-brand-800">
+                    {String(lender.name || "?").slice(0, 2)}
+                  </span>
+                  <div>
+                    <p className="font-semibold text-slate-900">
+                      {lender.name}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {lender.requestStatus
+                        ? `Request ${lender.requestStatus}`
+                        : "Partner lending organization"}
+                    </p>
+                  </div>
+                </div>
+
+                {lender.requestStatus === "pending" ? (
+                  <span className="rounded-full bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-800">
+                    Request sent
+                  </span>
+                ) : lender.requestStatus === "accepted" ? (
+                  <span className="rounded-full bg-green-100 px-3 py-1.5 text-sm font-semibold text-green-800">
+                    Accepted
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => sendLoanRequest(lender.id)}
+                    disabled={requestingId === lender.id}
+                    className="rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {requestingId === lender.id
+                      ? "Sending..."
+                      : lender.requestStatus === "declined"
+                        ? "Request again"
+                        : "Send loan request"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
             AI borrower coach
           </p>
@@ -247,7 +354,7 @@ export default function BorrowerDashboard({ session, onLogout }) {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.csv,.xlsx,.json"
+            accept=".pdf,.csv"
             onChange={uploadStatement}
             className="hidden"
           />
