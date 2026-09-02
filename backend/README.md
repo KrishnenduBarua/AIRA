@@ -40,6 +40,6 @@ For an OpenAI-compatible provider, configure:
 
 ```text
 LLM_API_KEY=your-key
-LLM_BASE_URL=https://your-provider.example/v1
-LLM_MODEL=your-model
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-5.6-luna
 ```

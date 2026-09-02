@@ -11,8 +11,8 @@ module.exports = {
   blockchainPrivateKey: process.env.BLOCKCHAIN_PRIVATE_KEY || null,
   anchorContractAddress: process.env.ANCHOR_CONTRACT_ADDRESS || null,
   llmApiKey: process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || null,
-  llmBaseUrl: process.env.LLM_BASE_URL || null,
-  llmModel: process.env.LLM_MODEL || "gpt-4o-mini",
+  llmBaseUrl: process.env.LLM_BASE_URL || "https://api.openai.com/v1",
+  llmModel: process.env.LLM_MODEL || "gpt-5.6-luna",
   textbeeApiKey: process.env.TEXTBEE_API_KEY || null,
   textbeeApiUrl:
     process.env.TEXTBEE_API_URL ||

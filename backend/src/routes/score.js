@@ -1,6 +1,11 @@
 const express = require("express");
 const axios = require("axios");
-const { scores, getUserById, saveScore } = require("../data/db");
+const {
+  scores,
+  getUserById,
+  saveScore,
+  getLatestScoreByUser,
+} = require("../data/db");
 const { requireAuth } = require("../middlewares/validation");
 const { mlServiceUrl } = require("../config");
 const { anchorScore } = require("../services/blockchain");
@@ -34,6 +39,32 @@ function validateFeaturePayload(features = {}) {
 
   return { valid: true };
 }
+
+router.get("/me", requireAuth, async (req, res) => {
+  try {
+    const latestScore = await getLatestScoreByUser(req.user.id);
+
+    if (!latestScore) {
+      return res
+        .status(404)
+        .json({ message: "No score record found for this user." });
+    }
+
+    return res.json({
+      userId: req.user.id,
+      score: latestScore.raw_score ?? latestScore.score,
+      tier: latestScore.tier,
+      factors: latestScore.factors,
+      riskLevel: latestScore.risk_label ?? latestScore.riskLevel,
+      createdAt: latestScore.created_at ?? latestScore.createdAt,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to load score profile.",
+      details: error.message,
+    });
+  }
+});
 
 router.post("/compute", requireAuth, async (req, res) => {
   try {

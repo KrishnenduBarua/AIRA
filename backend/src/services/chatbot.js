@@ -35,6 +35,8 @@ const borrowerPrompt = ChatPromptTemplate.fromMessages([
 ]);
 
 function sanitizeFactors(factors = {}) {
+  if (!factors || typeof factors !== "object") return {};
+
   return FACTOR_KEYS.reduce((result, key) => {
     const value = Number(factors[key]);
     if (Number.isFinite(value)) result[key] = value;
@@ -43,17 +45,36 @@ function sanitizeFactors(factors = {}) {
 }
 
 function buildContext({ score, riskLevel, tier, factors }) {
+  const numericScore = Number(score);
+
   return JSON.stringify({
-    score: Number.isFinite(Number(score)) ? Number(score) : null,
+    score: Number.isFinite(numericScore) ? numericScore : null,
     riskLevel: typeof riskLevel === "string" ? riskLevel : null,
     tier: typeof tier === "string" ? tier : null,
     shapFactors: sanitizeFactors(factors),
   });
 }
 
+function safeParseContext(context) {
+  if (!context) return { shapFactors: {} };
+
+  try {
+    const parsed = JSON.parse(context);
+    return parsed && typeof parsed === "object" ? parsed : { shapFactors: {} };
+  } catch (_error) {
+    return { shapFactors: {} };
+  }
+}
+
 function fallbackReply(mode, context) {
-  const factors = JSON.parse(context).shapFactors;
-  const strongest = Object.entries(factors).sort((a, b) => b[1] - a[1])[0];
+  const parsed = safeParseContext(context);
+  const factors =
+    parsed.shapFactors && typeof parsed.shapFactors === "object"
+      ? parsed.shapFactors
+      : {};
+  const strongest = Object.entries(factors).sort(
+    (a, b) => Number(b[1]) - Number(a[1]),
+  )[0];
 
   if (mode === "borrower") {
     return strongest
@@ -69,34 +90,61 @@ function fallbackReply(mode, context) {
 async function answerQuestion(mode, input) {
   const context = buildContext(input);
   const question =
-    typeof input.question === "string" ? input.question.trim() : "";
+    typeof input?.question === "string" ? input.question.trim() : "";
   if (!question) throw new Error("question is required");
 
   if (!llmApiKey) {
     return {
       answer: fallbackReply(mode, context),
       provider: "local-fallback",
-      groundedContext: JSON.parse(context),
+      groundedContext: safeParseContext(context),
     };
   }
 
-  const model = new ChatOpenAI({
+  const modelConfig = {
     apiKey: llmApiKey,
     model: llmModel,
-    temperature: 0.2,
     ...(llmBaseUrl ? { configuration: { baseURL: llmBaseUrl } } : {}),
-  });
-  const prompt = mode === "borrower" ? borrowerPrompt : lenderPrompt;
-  const response = await prompt.pipe(model).invoke({ context, question });
-
-  return {
-    answer:
-      typeof response.content === "string"
-        ? response.content
-        : String(response.content),
-    provider: "langchain",
-    groundedContext: JSON.parse(context),
   };
+
+  if (!/gpt-5/i.test(llmModel)) {
+    modelConfig.temperature = 0.2;
+  }
+
+  const model = new ChatOpenAI(modelConfig);
+  const prompt = mode === "borrower" ? borrowerPrompt : lenderPrompt;
+
+  try {
+    const response = await prompt.pipe(model).invoke({ context, question });
+    const answer =
+      typeof response?.content === "string"
+        ? response.content
+        : Array.isArray(response?.content)
+          ? response.content
+              .map((part) => {
+                if (typeof part === "string") return part;
+                if (part && typeof part.text === "string") return part.text;
+                return "";
+              })
+              .join(" ")
+              .trim()
+          : String(response?.content ?? "");
+
+    return {
+      answer: answer || fallbackReply(mode, context),
+      provider: "openai",
+      groundedContext: safeParseContext(context),
+      model: llmModel,
+    };
+  } catch (error) {
+    return {
+      answer: fallbackReply(mode, context),
+      provider: "openai-fallback",
+      groundedContext: safeParseContext(context),
+      model: llmModel,
+      warning: error.message,
+    };
+  }
 }
 
 module.exports = { answerQuestion, sanitizeFactors };
