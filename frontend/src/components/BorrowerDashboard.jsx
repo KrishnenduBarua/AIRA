@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { request } from "../api";
 
 export default function BorrowerDashboard({ session, onLogout }) {
   const [consent, setConsent] = useState(Boolean(session.user.consentGiven));
   const [message, setMessage] = useState("");
+  const [messageIsError, setMessageIsError] = useState(true);
   const [savingConsent, setSavingConsent] = useState(false);
   const [scoreData, setScoreData] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
   const [chatQuestion, setChatQuestion] = useState("");
   const [chatAnswer, setChatAnswer] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -39,9 +42,52 @@ export default function BorrowerDashboard({ session, onLogout }) {
       });
       setConsent(Boolean(data.consentGiven));
     } catch (error) {
+      setMessageIsError(true);
       setMessage(error.message);
     } finally {
       setSavingConsent(false);
+    }
+  };
+
+  const uploadStatement = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!consent) {
+      setMessageIsError(true);
+      setMessage("Please grant consent before uploading a statement.");
+      return;
+    }
+
+    setMessage("");
+    setUploading(true);
+
+    try {
+      const body = new FormData();
+      body.append("statement", file);
+
+      const uploaded = await request("/statements/upload", {
+        method: "POST",
+        body,
+      });
+
+      const result = await request("/score/compute", {
+        method: "POST",
+        body: JSON.stringify({
+          userId: session.user.id,
+          features: uploaded.statement.extractedFeatures,
+        }),
+      });
+
+      setScoreData(result);
+      setMessageIsError(false);
+      setMessage("Your score is ready.");
+    } catch (error) {
+      setMessageIsError(true);
+      setMessage(error.message);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -144,7 +190,13 @@ export default function BorrowerDashboard({ session, onLogout }) {
             </div>
           )}
 
-          {message && <p className="mt-4 text-sm text-red-600">{message}</p>}
+          {message && (
+            <p
+              className={`mt-4 text-sm ${messageIsError ? "text-red-600" : "text-green-700"}`}
+            >
+              {message}
+            </p>
+          )}
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
@@ -192,8 +244,20 @@ export default function BorrowerDashboard({ session, onLogout }) {
           Quick actions
         </p>
         <div className="mt-4 space-y-3">
-          <button className="w-full rounded-xl bg-brand-700 px-4 py-3 font-semibold text-white">
-            Upload statement
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.csv,.xlsx,.json"
+            onChange={uploadStatement}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="w-full rounded-xl bg-brand-700 px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {uploading ? "Analyzing statement..." : "Upload statement"}
           </button>
           <button className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 font-semibold text-slate-700">
             View score
