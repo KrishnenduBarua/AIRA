@@ -3,16 +3,52 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   email TEXT NULL,
   phone_number TEXT UNIQUE,
-  password_hash TEXT NULL,
+  password_hash TEXT NULL DEFAULT NULL,
   role TEXT NOT NULL DEFAULT 'borrower',
   consent_given BOOLEAN NOT NULL DEFAULT FALSE,
   nid_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  date_of_birth DATE,
+  nid_number TEXT,
+  permanent_address TEXT,
+  nid_front_url TEXT,
+  nid_back_url TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+ALTER TABLE users ALTER COLUMN email DROP DEFAULT;
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_number TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS permanent_address TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_front_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_back_url TEXT;
+ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS users_phone_number_unique ON users (phone_number) WHERE phone_number IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS users_nid_number_unique ON users (nid_number) WHERE nid_number IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS lender_applications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT REFERENCES users(id),
+  organization_name TEXT NOT NULL,
+  trade_license_number TEXT,
+  tin_number TEXT,
+  bin_number TEXT,
+  phone_number TEXT NOT NULL,
+  personal_nid_number TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  documents JSONB NOT NULL DEFAULT '{}'::jsonb,
+  reviewed_by TEXT REFERENCES users(id),
+  reviewed_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE lender_applications ADD COLUMN IF NOT EXISTS reviewed_by TEXT REFERENCES users(id);
+ALTER TABLE lender_applications ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
 
 CREATE TABLE IF NOT EXISTS consent_records (
   id TEXT PRIMARY KEY,

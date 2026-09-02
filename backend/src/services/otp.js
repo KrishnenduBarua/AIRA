@@ -1,19 +1,36 @@
-const crypto = require("crypto");
-const twilio = require("twilio");
+const axios = require("axios");
 const {
-  twilioAccountSid,
-  twilioAuthToken,
-  twilioPhoneNumber,
-  twilioMessagingServiceSid,
+  textbeeApiKey,
+  textbeeApiUrl,
+  textbeeDeviceId,
+  otpMode,
   otpLength,
   otpExpiryMinutes,
 } = require("../config");
 
 const otpStore = new Map();
+const verifiedPhoneStore = new Map();
 
 function normalizePhone(phone) {
   if (!phone) return "";
-  const cleaned = String(phone).replace(/\s+/g, "");
+  const cleaned = String(phone)
+    .replace(/[^\d+]/g, "")
+    .replace(/\s+/g, "");
+
+  if (!cleaned) return "";
+  if (cleaned.startsWith("00")) {
+    return `+${cleaned.slice(2)}`;
+  }
+  if (cleaned.startsWith("+88") || cleaned.startsWith("88")) {
+    return cleaned.startsWith("+") ? cleaned : `+${cleaned}`;
+  }
+  if (cleaned.startsWith("01") && cleaned.length === 11) {
+    return `+88${cleaned}`;
+  }
+  if (cleaned.startsWith("880") && !cleaned.startsWith("+")) {
+    return `+${cleaned}`;
+  }
+
   return cleaned.startsWith("+") ? cleaned : `+${cleaned}`;
 }
 
@@ -51,35 +68,66 @@ function verifyOtp(phone, otp) {
   if (record.otp !== String(otp)) return false;
   record.used = true;
   otpStore.delete(phone);
+  verifiedPhoneStore.set(phone, {
+    verifiedAt: Date.now(),
+    expiresAt: Date.now() + 30 * 60 * 1000,
+  });
   return true;
+}
+
+function isPhoneVerified(phone) {
+  const record = verifiedPhoneStore.get(phone);
+  if (!record) return false;
+  if (Date.now() > record.expiresAt) {
+    verifiedPhoneStore.delete(phone);
+    return false;
+  }
+  return true;
+}
+
+function consumePhoneVerification(phone) {
+  const result = isPhoneVerified(phone);
+  verifiedPhoneStore.delete(phone);
+  return result;
 }
 
 async function sendOtpSms(phone, otp) {
   const normalized = normalizePhone(phone);
-  if (!twilioAccountSid || !twilioAuthToken) {
+  const isDemoMode = String(otpMode) === "demo" || !textbeeApiKey;
+
+  if (isDemoMode) {
     console.warn(
-      "Twilio not configured. OTP SMS not sent. Phone:",
+      "OTP demo mode enabled. SMS is skipped and the code is returned for local frontend testing. Phone:",
       normalized,
       "OTP:",
       otp,
     );
-    return { mocked: true, phone: normalized, otp };
+    return { mocked: true, mode: "demo", phone: normalized, otp };
   }
 
-  const client = twilio(twilioAccountSid, twilioAuthToken);
-  const options = {
-    to: normalized,
-    body: `Your AIRA verification code is ${otp}. It expires in ${otpExpiryMinutes} minutes.`,
+  const payload = {
+    deviceId: textbeeDeviceId,
+    recipients: [normalized],
+    message: `Your AIRA verification code is ${otp}. It expires in ${otpExpiryMinutes} minutes.`,
   };
 
-  if (twilioMessagingServiceSid) {
-    options.messagingServiceSid = twilioMessagingServiceSid;
-  } else if (twilioPhoneNumber) {
-    options.from = twilioPhoneNumber;
-  }
+  const response = await axios.post(
+    textbeeApiUrl || "https://api.textbee.dev/api/v1/gateway/send-sms",
+    payload,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": textbeeApiKey,
+      },
+    },
+  );
 
-  const message = await client.messages.create(options);
-  return { mocked: false, sid: message.sid, phone: normalized };
+  return {
+    mocked: false,
+    mode: "live",
+    response: response.data,
+    phone: normalized,
+  };
 }
 
 async function createOtpForPhone(phone) {
@@ -93,5 +141,9 @@ module.exports = {
   createOtpForPhone,
   normalizePhone,
   verifyOtp,
+  isPhoneVerified,
+  consumePhoneVerification,
   getOtpRecord,
+  generateOtp,
+  saveOtp,
 };

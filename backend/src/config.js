@@ -13,10 +13,13 @@ module.exports = {
   llmApiKey: process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || null,
   llmBaseUrl: process.env.LLM_BASE_URL || null,
   llmModel: process.env.LLM_MODEL || "gpt-4o-mini",
-  twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || null,
-  twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || null,
-  twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER || null,
-  twilioMessagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID || null,
+  textbeeApiKey: process.env.TEXTBEE_API_KEY || null,
+  textbeeApiUrl:
+    process.env.TEXTBEE_API_URL ||
+    "https://api.textbee.dev/api/v1/gateway/send-sms",
+  textbeeDeviceId: process.env.TEXTBEE_DEVICE_ID || null,
+  textbeeSenderId: process.env.TEXTBEE_SENDER_ID || null,
+  otpMode: (process.env.OTP_MODE || "live").toLowerCase(),
   otpExpiryMinutes: Number(process.env.OTP_EXPIRY_MINUTES || 5),
   otpLength: Number(process.env.OTP_LENGTH || 6),
 };
