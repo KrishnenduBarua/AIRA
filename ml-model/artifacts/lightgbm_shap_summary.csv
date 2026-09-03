@@ -1,0 +1,14 @@
+feature,mean_abs_shap
+income_regularity,2.1567309511346013
+bill_payment_regularity,1.2085381726875246
+avg_monthly_income,0.372926896541299
+n_transactions,0.2449483555009309
+transaction_diversity,0.22377171751590288
+max_single_txn_pct_balance,0.2100708235331492
+balance_volatility,0.19784245095188482
+savings_ratio,0.1541518479360203
+bill_payment_count,0.12830225939290027
+spending_to_income_ratio,0.10176014438750736
+months_of_history,0.03048245437871749
+circular_transfer_flag,0.0
+balance_consistency_pass,0.0
