@@ -6,35 +6,10 @@ import {
   Button,
   Card,
   Field,
-  Stepper,
   TextArea,
   TextInput,
   cx,
 } from "../ui/primitives";
-
-// The five-step borrower journey from the white paper. Signup covers the first
-// two steps; consent, statement upload, and the trust profile continue on the
-// dashboard, but the borrower sees the whole path from the very first screen so
-// the process never feels open-ended.
-const JOURNEY = ["phone", "identity", "consent", "statement", "profile"];
-const SIGNUP_STEP_INDEX = { phone: 0, otp: 0, profile: 1 };
-
-function JourneyStepper({ step }) {
-  const { t } = useLanguage();
-  const steps = JOURNEY.map((key) => ({
-    key,
-    label: t(`auth.steps.${key}`),
-    help: t(`auth.stepHelp.${key}`),
-  }));
-
-  return (
-    <Stepper
-      steps={steps}
-      currentIndex={SIGNUP_STEP_INDEX[step] ?? 0}
-      label={t("borrower.journey")}
-    />
-  );
-}
 
 export default function AuthFlow({ mode, onSuccess }) {
   const { t } = useLanguage();
@@ -197,7 +172,7 @@ export default function AuthFlow({ mode, onSuccess }) {
         : t("auth.detailsTitle");
 
   return (
-    <Card>
+    <Card className="aira-auth-card">
       <div className="mb-4">
         <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-brand-700">
           {t("app.name")}
@@ -237,12 +212,6 @@ export default function AuthFlow({ mode, onSuccess }) {
               {tab.label}
             </button>
           ))}
-        </div>
-      )}
-
-      {showSignup && isBorrower && (
-        <div className="mb-5">
-          <JourneyStepper step={step} />
         </div>
       )}
 

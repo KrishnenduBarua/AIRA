@@ -32,7 +32,7 @@ export function Card({ children, className, as: Tag = "section", ...rest }) {
     <Tag
       {...rest}
       className={cx(
-        "min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-soft sm:p-6",
+        "aira-card min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-soft sm:p-6",
         className,
       )}
     >
@@ -354,65 +354,6 @@ export function ProgressBar({ value, label, tone = "brand" }) {
       </div>
       {label && <p className="mt-1.5 text-xs text-slate-600">{label}</p>}
     </div>
-  );
-}
-
-// A horizontal stepper on wide screens, a compact vertical list on phones,
-// where five side-by-side labels would be unreadable.
-export function Stepper({ steps, currentIndex, label }) {
-  return (
-    <ol
-      aria-label={label}
-      className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-2"
-    >
-      {steps.map((step, index) => {
-        const state =
-          index < currentIndex
-            ? "done"
-            : index === currentIndex
-              ? "current"
-              : "upcoming";
-        return (
-          <li
-            key={step.key}
-            aria-current={state === "current" ? "step" : undefined}
-            className={cx(
-              "flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-3 py-2.5",
-              state === "done" && "border-brand-200 bg-brand-50",
-              state === "current" && "border-brand-500 bg-white ring-2 ring-brand-200",
-              state === "upcoming" && "border-slate-200 bg-slate-50",
-            )}
-          >
-            <span
-              aria-hidden="true"
-              className={cx(
-                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                state === "done" && "bg-brand-600 text-white",
-                state === "current" && "bg-brand-700 text-white",
-                state === "upcoming" && "bg-slate-200 text-slate-600",
-              )}
-            >
-              {state === "done" ? "✓" : index + 1}
-            </span>
-            <span className="min-w-0">
-              <span
-                className={cx(
-                  "block truncate text-sm font-semibold",
-                  state === "upcoming" ? "text-slate-500" : "text-slate-900",
-                )}
-              >
-                {step.label}
-              </span>
-              {step.help && state === "current" && (
-                <span className="mt-0.5 block text-xs leading-5 text-slate-600">
-                  {step.help}
-                </span>
-              )}
-            </span>
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 
