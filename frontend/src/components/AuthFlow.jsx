@@ -1,22 +1,51 @@
 import { useState } from "react";
 import { request } from "../api";
+import { useLanguage } from "../i18n";
+import {
+  Alert,
+  Button,
+  Card,
+  Field,
+  Stepper,
+  TextArea,
+  TextInput,
+  cx,
+} from "../ui/primitives";
 
-function RequiredLabel({ children }) {
+// The five-step borrower journey from the white paper. Signup covers the first
+// two steps; consent, statement upload, and the trust profile continue on the
+// dashboard, but the borrower sees the whole path from the very first screen so
+// the process never feels open-ended.
+const JOURNEY = ["phone", "identity", "consent", "statement", "profile"];
+const SIGNUP_STEP_INDEX = { phone: 0, otp: 0, profile: 1 };
+
+function JourneyStepper({ step }) {
+  const { t } = useLanguage();
+  const steps = JOURNEY.map((key) => ({
+    key,
+    label: t(`auth.steps.${key}`),
+    help: t(`auth.stepHelp.${key}`),
+  }));
+
   return (
-    <label className="mb-2 flex items-center gap-1 text-sm font-medium text-slate-700">
-      <span>{children}</span>
-      <span className="text-red-500">*</span>
-    </label>
+    <Stepper
+      steps={steps}
+      currentIndex={SIGNUP_STEP_INDEX[step] ?? 0}
+      label={t("borrower.journey")}
+    />
   );
 }
 
 export default function AuthFlow({ mode, onSuccess }) {
+  const { t } = useLanguage();
   const isBorrower = mode === "borrower";
   const isAdmin = mode === "admin";
+
   const [authTab, setAuthTab] = useState(isAdmin ? "login" : "signup");
   const [step, setStep] = useState("phone");
   const [otpSent, setOtpSent] = useState(false);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [loginForm, setLoginForm] = useState({ phone: "", password: "" });
@@ -50,11 +79,23 @@ export default function AuthFlow({ mode, onSuccess }) {
     });
   };
 
-  const sendOtp = async (event) => {
-    event.preventDefault();
+  // Every submit routes through here so loading and error handling stay
+  // identical across the three signup steps and login.
+  const run = async (action) => {
     setError("");
-
+    setBusy(true);
     try {
+      await action();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendOtp = (event) => {
+    event.preventDefault();
+    return run(async () => {
       const data = await request("/auth/request-otp", {
         method: "POST",
         body: JSON.stringify({
@@ -62,37 +103,25 @@ export default function AuthFlow({ mode, onSuccess }) {
           role: isBorrower ? "borrower" : "lender",
         }),
       });
-
       setOtpSent(true);
       setStep("otp");
       setVerifiedPhone(false);
-      if (data.user) {
-        setPhone(data.user.phone || phone);
-      }
-    } catch (err) {
-      setError(err.message);
-    }
+      if (data.user) setPhone(data.user.phone || phone);
+    });
   };
 
-  const verifyOtp = async (event) => {
+  const verifyOtp = (event) => {
     event.preventDefault();
-    setError("");
-
-    try {
+    return run(async () => {
       const data = await request("/auth/verify-otp", {
         method: "POST",
         body: JSON.stringify({ phone, otp }),
       });
-
       setVerifiedPhone(true);
       setVerificationToken(data.verificationToken || "");
       setStep("profile");
-      if (data.user) {
-        setPhone(data.user.phone || phone);
-      }
-    } catch (err) {
-      setError(err.message);
-    }
+      if (data.user) setPhone(data.user.phone || phone);
+    });
   };
 
   const handleFileUpload = (fieldName, event) => {
@@ -101,16 +130,14 @@ export default function AuthFlow({ mode, onSuccess }) {
     setProfile((current) => ({ ...current, [fieldName]: file }));
   };
 
-  const completeRegistration = async (event) => {
+  const completeRegistration = (event) => {
     event.preventDefault();
-    setError("");
-
     if (isBorrower && (!profile.nidFrontFile || !profile.nidBackFile)) {
-      setError("Both front and back NID images are required.");
-      return;
+      setError(t("auth.bothNidRequired"));
+      return undefined;
     }
 
-    try {
+    return run(async () => {
       const formData = new FormData();
       formData.append("phone", phone);
       if (isBorrower) {
@@ -139,16 +166,12 @@ export default function AuthFlow({ mode, onSuccess }) {
           name: data.user?.name || profile.fullName,
         },
       });
-    } catch (err) {
-      setError(err.message);
-    }
+    });
   };
 
-  const login = async (event) => {
+  const login = (event) => {
     event.preventDefault();
-    setError("");
-
-    try {
+    return run(async () => {
       const data = await request("/auth/login", {
         method: "POST",
         body: JSON.stringify({
@@ -157,284 +180,271 @@ export default function AuthFlow({ mode, onSuccess }) {
           role: mode,
         }),
       });
-
       onSuccess(data);
-    } catch (err) {
-      setError(err.message);
-    }
+    });
   };
 
   const showRoleTabs = !isAdmin;
   const showLogin = isAdmin || authTab === "login";
   const showSignup = !isAdmin && authTab === "signup";
 
+  const heading = showLogin
+    ? t("auth.loginTitle")
+    : step === "phone"
+      ? t("auth.createTitle")
+      : step === "otp"
+        ? t("auth.verifyTitle")
+        : t("auth.detailsTitle");
+
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-700">
-          AIRA
+    <Card>
+      <div className="mb-4">
+        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-brand-700">
+          {t("app.name")}
         </p>
-        <h2 className="mt-3 text-2xl font-bold text-slate-900">
-          {showLogin
-            ? "Login to your account"
-            : step === "phone"
-              ? "Create your account"
-              : step === "otp"
-                ? "Verify your phone"
-                : "Complete NID details"}
+        <h2 className="mt-2 text-xl font-bold text-slate-900 sm:text-2xl">
+          {heading}
         </h2>
       </div>
 
       {showRoleTabs && (
-        <div className="mb-5 flex rounded-xl bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setAuthTab("signup");
-              resetSignup();
-            }}
-            className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition ${authTab === "signup" ? "bg-brand-700 text-white" : "text-slate-600"}`}
-          >
-            Sign up
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAuthTab("login");
-              setError("");
-            }}
-            className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition ${authTab === "login" ? "bg-brand-700 text-white" : "text-slate-600"}`}
-          >
-            Login
-          </button>
+        <div
+          role="tablist"
+          aria-label={t("auth.login")}
+          className="mb-5 flex rounded-xl bg-slate-100 p-1"
+        >
+          {[
+            { key: "signup", label: t("auth.signup") },
+            { key: "login", label: t("auth.login") },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={authTab === tab.key}
+              onClick={() => {
+                setAuthTab(tab.key);
+                if (tab.key === "signup") resetSignup();
+                else setError("");
+              }}
+              className={cx(
+                "min-h-11 flex-1 rounded-lg px-3 text-sm font-semibold transition",
+                authTab === tab.key
+                  ? "bg-brand-700 text-white"
+                  : "text-slate-600 hover:bg-slate-200",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       )}
 
+      {showSignup && isBorrower && (
+        <div className="mb-5">
+          <JourneyStepper step={step} />
+        </div>
+      )}
+
+      {error && (
+        <Alert variant="error" className="mb-4">
+          {error}
+        </Alert>
+      )}
+
       {showLogin && (
-        <form onSubmit={login} className="space-y-4">
-          <div>
-            <RequiredLabel>Phone number</RequiredLabel>
-            <input
-              value={loginForm.phone}
-              onChange={(e) =>
-                setLoginForm((current) => ({
-                  ...current,
-                  phone: e.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-            />
-          </div>
-          <div>
-            <RequiredLabel>Password</RequiredLabel>
-            <input
-              type="password"
-              value={loginForm.password}
-              onChange={(e) =>
-                setLoginForm((current) => ({
-                  ...current,
-                  password: e.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-brand-700 px-4 py-3 font-semibold text-white transition hover:bg-brand-800"
-          >
-            Login
-          </button>
+        <form onSubmit={login} className="space-y-4" noValidate>
+          <TextInput
+            required
+            label={t("common.phone")}
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            value={loginForm.phone}
+            onChange={(e) =>
+              setLoginForm((current) => ({ ...current, phone: e.target.value }))
+            }
+          />
+          <TextInput
+            required
+            label={t("common.password")}
+            type="password"
+            autoComplete="current-password"
+            value={loginForm.password}
+            onChange={(e) =>
+              setLoginForm((current) => ({
+                ...current,
+                password: e.target.value,
+              }))
+            }
+          />
+          <Button type="submit" full disabled={busy}>
+            {busy ? t("common.loading") : t("auth.login")}
+          </Button>
         </form>
       )}
 
       {showSignup && step === "phone" && (
-        <form onSubmit={sendOtp} className="space-y-4">
-          <div>
-            <RequiredLabel>Phone number</RequiredLabel>
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="01819955776"
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-brand-700 px-4 py-3 font-semibold text-white transition hover:bg-brand-800"
-          >
-            Send OTP
-          </button>
+        <form onSubmit={sendOtp} className="space-y-4" noValidate>
+          <TextInput
+            required
+            label={t("common.phone")}
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            placeholder="01XXXXXXXXX"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <Button type="submit" full disabled={busy || !phone.trim()}>
+            {busy ? t("auth.sending") : t("auth.sendOtp")}
+          </Button>
+          <Alert variant="info">
+            {t(isBorrower ? "auth.borrowerNote" : "auth.lenderNote")}
+          </Alert>
         </form>
       )}
 
       {showSignup && step === "otp" && (
-        <form onSubmit={verifyOtp} className="space-y-4">
-          <div>
-            <RequiredLabel>OTP code</RequiredLabel>
-            <input
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="Enter 6-digit code"
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-brand-700 px-4 py-3 font-semibold text-white transition hover:bg-brand-800"
+        <form onSubmit={verifyOtp} className="space-y-4" noValidate>
+          <TextInput
+            required
+            label={t("auth.otpLabel")}
+            help={t("auth.otpHelp", { phone })}
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            placeholder="000000"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+            className="tracking-widest"
+          />
+          <Button type="submit" full disabled={busy || otp.length < 4}>
+            {busy ? t("auth.verifying") : t("auth.verifyOtp")}
+          </Button>
+          <Button
+            variant="ghost"
+            full
+            onClick={() => {
+              setStep("phone");
+              setOtp("");
+              setError("");
+            }}
           >
-            Verify OTP
-          </button>
+            {t("auth.changeNumber")}
+          </Button>
         </form>
       )}
 
       {showSignup && step === "profile" && (
-        <form onSubmit={completeRegistration} className="space-y-4">
-          {isBorrower && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-              Please fill every field exactly as it appears on the customer’s
-              NID document before creating the account.
-            </div>
+        <form onSubmit={completeRegistration} className="space-y-4" noValidate>
+          {verifiedPhone && (
+            <Alert variant="success">{t("auth.phoneVerified")}</Alert>
           )}
 
           {isBorrower && (
-            <div>
-              <RequiredLabel>Full name</RequiredLabel>
-              <input
+            <>
+              <Alert variant="warning">{t("auth.nidNotice")}</Alert>
+              <TextInput
+                required
+                label={t("auth.fullName")}
+                autoComplete="name"
                 value={profile.fullName}
                 onChange={(e) =>
                   setProfile({ ...profile, fullName: e.target.value })
                 }
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
               />
-            </div>
-          )}
-          {isBorrower && (
-            <div>
-              <RequiredLabel>Date of birth</RequiredLabel>
-              <input
+              <TextInput
+                required
+                label={t("auth.dob")}
                 type="date"
                 value={profile.dob}
-                onChange={(e) =>
-                  setProfile({ ...profile, dob: e.target.value })
-                }
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+                onChange={(e) => setProfile({ ...profile, dob: e.target.value })}
               />
-            </div>
-          )}
-          {isBorrower && (
-            <div>
-              <RequiredLabel>NID number</RequiredLabel>
-              <input
+              <TextInput
+                required
+                label={t("auth.nidNumber")}
+                inputMode="numeric"
                 value={profile.nidNumber}
                 onChange={(e) =>
                   setProfile({ ...profile, nidNumber: e.target.value })
                 }
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
               />
-            </div>
-          )}
-          {isBorrower && (
-            <div>
-              <RequiredLabel>Permanent address</RequiredLabel>
-              <textarea
+              <TextArea
+                required
                 rows={3}
+                label={t("auth.address")}
                 value={profile.permanentAddress}
                 onChange={(e) =>
                   setProfile({ ...profile, permanentAddress: e.target.value })
                 }
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
               />
-            </div>
+            </>
           )}
-          <div>
-            <RequiredLabel>Password</RequiredLabel>
-            <input
-              type="password"
-              value={profile.password}
-              onChange={(e) =>
-                setProfile({ ...profile, password: e.target.value })
-              }
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-            />
-          </div>
+
+          <TextInput
+            required
+            label={t("common.password")}
+            help={t("auth.passwordHelp")}
+            type="password"
+            autoComplete="new-password"
+            value={profile.password}
+            onChange={(e) =>
+              setProfile({ ...profile, password: e.target.value })
+            }
+          />
+
           {isBorrower && (
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <RequiredLabel>NID front image</RequiredLabel>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => handleFileUpload("nidFrontFile", event)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-                />
-                {profile.nidFrontFile && (
-                  <p className="mt-2 text-xs text-slate-600">
-                    {profile.nidFrontFile.name}
-                  </p>
-                )}
-              </div>
-              <div>
-                <RequiredLabel>NID back image</RequiredLabel>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => handleFileUpload("nidBackFile", event)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-                />
-                {profile.nidBackFile && (
-                  <p className="mt-2 text-xs text-slate-600">
-                    {profile.nidBackFile.name}
-                  </p>
-                )}
-              </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[
+                ["nidFrontFile", t("auth.nidFront")],
+                ["nidBackFile", t("auth.nidBack")],
+              ].map(([fieldName, label]) => (
+                <Field
+                  key={fieldName}
+                  required
+                  label={label}
+                  help={t("auth.nidHelp")}
+                >
+                  {(props) => (
+                    <>
+                      <input
+                        {...props}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(event) => handleFileUpload(fieldName, event)}
+                        className={cx(
+                          props.className,
+                          "file:mr-3 file:rounded-lg file:border-0 file:bg-brand-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-brand-800",
+                        )}
+                      />
+                      {profile[fieldName] && (
+                        <p className="mt-1.5 break-all text-xs font-medium text-green-700">
+                          ✓ {profile[fieldName].name}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </Field>
+              ))}
             </div>
           )}
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-brand-700 px-4 py-3 font-semibold text-white transition hover:bg-brand-800"
-          >
-            Create account
-          </button>
+
+          <Button type="submit" full disabled={busy}>
+            {busy ? t("auth.creating") : t("auth.createAccount")}
+          </Button>
         </form>
       )}
 
-      {!otpSent && !verifiedPhone && showSignup && (
-        <div className="mt-4 text-sm text-slate-500">
-          {isBorrower
-            ? "Borrower accounts require phone verification before profile creation."
-            : "Lender accounts require admin approval before final onboarding."}
-        </div>
-      )}
-
-      {verifiedPhone && (
-        <div className="mt-4 text-sm text-green-700">
-          Phone number verified successfully.
-        </div>
-      )}
-
-      {showSignup && (
+      {showSignup && (otpSent || step !== "phone") && (
         <div className="mt-5 flex justify-center">
-          <button
-            type="button"
-            className="text-sm font-medium text-brand-700 underline"
-            onClick={() => {
-              setStep("phone");
-              setOtpSent(false);
-              setVerifiedPhone(false);
-              setVerificationToken("");
-              setError("");
-              setOtp("");
-            }}
-          >
-            Start over
-          </button>
+          <Button variant="ghost" onClick={resetSignup}>
+            {t("auth.startOver")}
+          </Button>
         </div>
       )}
-    </section>
+    </Card>
   );
 }

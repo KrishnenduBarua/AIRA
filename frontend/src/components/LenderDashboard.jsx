@@ -1,51 +1,77 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { request } from "../api";
+import { useLanguage } from "../i18n";
 import LenderDashboardView from "./LenderDashboardView";
 
+const PAGE_SIZE = 8;
+
 export default function LenderDashboard({ session, onLogout }) {
+  const { t, language } = useLanguage();
+
   const [borrowerId, setBorrowerId] = useState("");
   const [scoreData, setScoreData] = useState(null);
   const [loadingScore, setLoadingScore] = useState(false);
   const [scoreError, setScoreError] = useState("");
+
+  const [loanRequests, setLoanRequests] = useState([]);
+  const [requestsState, setRequestsState] = useState("loading");
+  const [requestError, setRequestError] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [requestDetail, setRequestDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+
+  const [decisionDraft, setDecisionDraft] = useState(null);
+  const [decisionReason, setDecisionReason] = useState("");
+  const [decisionError, setDecisionError] = useState("");
+  const [deciding, setDeciding] = useState(false);
+
   const [chatQuestion, setChatQuestion] = useState("");
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
   const [chatError, setChatError] = useState("");
-  const [loanRequests, setLoanRequests] = useState([]);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [requestDetail, setRequestDetail] = useState(null);
-  const [requestError, setRequestError] = useState("");
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [deciding, setDeciding] = useState(false);
+  const [chatGrounding, setChatGrounding] = useState("");
+
+  const resetDetail = useCallback(() => {
+    setSelectedRequest(null);
+    setRequestDetail(null);
+    setDetailError("");
+    setScoreData(null);
+    setBorrowerId("");
+    setChatQuestion("");
+    setChatMessages([]);
+    setChatError("");
+    setChatGrounding("");
+    setDecisionDraft(null);
+    setDecisionReason("");
+    setDecisionError("");
+  }, []);
+
   useEffect(() => {
     const handleHistoryChange = () => {
-      const requestId = new URLSearchParams(window.location.search).get(
-        "request",
-      );
-      if (!requestId) {
-        setRequestDetail(null);
-        setSelectedRequest(null);
-        setScoreData(null);
-        setBorrowerId("");
-        setChatQuestion("");
-        setChatMessages([]);
-        setChatError("");
-        setRequestError("");
+      if (!new URLSearchParams(window.location.search).get("request")) {
+        resetDetail();
       }
     };
     window.addEventListener("popstate", handleHistoryChange);
     return () => window.removeEventListener("popstate", handleHistoryChange);
-  }, []);
+  }, [resetDetail]);
 
-  const loadLoanRequests = useCallback(async () => {
+  const loadLoanRequests = useCallback(async (mode = "initial") => {
+    setRequestsState(mode === "initial" ? "loading" : "refreshing");
     try {
       const data = await request("/loans/requests");
       setLoanRequests(data.requests || []);
-      setPendingCount(data.pendingCount || 0);
       setRequestError("");
+      setRequestsState("ready");
     } catch (error) {
       setRequestError(error.message);
+      setRequestsState("error");
     }
   }, []);
 
@@ -53,46 +79,98 @@ export default function LenderDashboard({ session, onLogout }) {
     loadLoanRequests();
   }, [loadLoanRequests]);
 
-  const openRequest = async (requestId) => {
-    window.history.pushState(
-      { view: "borrower", requestId },
-      "",
-      `?view=borrower&request=${encodeURIComponent(requestId)}`,
-    );
-    setSelectedRequest(requestId);
-    setRequestDetail(null);
-    setRequestError("");
-    setDetailLoading(true);
+  // Filtering happens client-side over an already-fetched inbox; the visible
+  // slice keeps long lists cheap to render on low-end phones.
+  const filteredRequests = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return loanRequests.filter((item) => {
+      if (statusFilter !== "all" && item.status !== statusFilter) return false;
+      if (!term) return true;
+      return (
+        String(item.borrowerName || "").toLowerCase().includes(term) ||
+        String(item.borrowerPhone || "").toLowerCase().includes(term)
+      );
+    });
+  }, [loanRequests, statusFilter, search]);
+
+  const pendingCount = useMemo(
+    () => loanRequests.filter((item) => item.status === "pending").length,
+    [loanRequests],
+  );
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [statusFilter, search]);
+
+  const loadChatHistory = useCallback(async (subjectId) => {
+    setChatHistoryLoading(true);
     try {
-      const detail = await request(`/loans/requests/${requestId}`);
-      setRequestDetail(detail);
-      setBorrowerId(detail.borrower.id);
-      setScoreData(detail.score);
       const history = await request(
-        `/chat/lender/history?subjectUserId=${encodeURIComponent(detail.borrower.id)}`,
+        `/chat/lender/history?subjectUserId=${encodeURIComponent(subjectId)}`,
       );
       setChatMessages(history.messages || []);
       setChatError("");
-    } catch (error) {
-      setRequestError(error.message);
+    } catch (_error) {
+      setChatMessages([]);
     } finally {
-      setDetailLoading(false);
+      setChatHistoryLoading(false);
     }
-  };
+  }, []);
 
-  const decide = async (status) => {
-    if (!selectedRequest) return;
+  const openRequest = useCallback(
+    async (requestId, { push = true } = {}) => {
+      if (push) {
+        window.history.pushState(
+          { view: "borrower", requestId },
+          "",
+          `?view=borrower&request=${encodeURIComponent(requestId)}`,
+        );
+      }
+      setSelectedRequest(requestId);
+      setRequestDetail(null);
+      setDetailError("");
+      setDetailLoading(true);
+      setDecisionDraft(null);
+      setDecisionReason("");
+      setDecisionError("");
+
+      try {
+        const detail = await request(`/loans/requests/${requestId}`);
+        setRequestDetail(detail);
+        setBorrowerId(detail.borrower.id);
+        setScoreData(detail.score);
+        await loadChatHistory(detail.borrower.id);
+      } catch (error) {
+        setDetailError(error.message);
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [loadChatHistory],
+  );
+
+  const submitDecision = async () => {
+    if (!selectedRequest || !decisionDraft) return;
+    const reason = decisionReason.trim();
+    if (reason.length < 10) {
+      setDecisionError(t("lender.reasonTooShort"));
+      return;
+    }
+
     setDeciding(true);
-    setRequestError("");
+    setDecisionError("");
     try {
       await request(`/loans/requests/${selectedRequest}/decision`, {
         method: "POST",
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: decisionDraft, reason }),
       });
-      await loadLoanRequests();
-      await openRequest(selectedRequest);
+      setDecisionDraft(null);
+      setDecisionReason("");
+      await loadLoanRequests("refresh");
+      await openRequest(selectedRequest, { push: false });
     } catch (error) {
-      setRequestError(error.message);
+      // The typed reason is preserved so a failed save is never retyped.
+      setDecisionError(error.message);
     } finally {
       setDeciding(false);
     }
@@ -100,7 +178,7 @@ export default function LenderDashboard({ session, onLogout }) {
 
   const loadBorrowerScore = async () => {
     if (!borrowerId.trim()) {
-      setScoreError("Enter a borrower user ID first.");
+      setScoreError(t("lender.lookupHelp"));
       return;
     }
     setLoadingScore(true);
@@ -110,10 +188,7 @@ export default function LenderDashboard({ session, onLogout }) {
     try {
       const data = await request(`/lender/score/${borrowerId.trim()}`);
       setScoreData(data);
-      const history = await request(
-        `/chat/lender/history?subjectUserId=${encodeURIComponent(borrowerId.trim())}`,
-      );
-      setChatMessages(history.messages || []);
+      await loadChatHistory(borrowerId.trim());
     } catch (error) {
       setScoreData(null);
       setScoreError(error.message);
@@ -123,33 +198,35 @@ export default function LenderDashboard({ session, onLogout }) {
   };
 
   const askCoach = async (event) => {
-    event.preventDefault();
-    if (!chatQuestion.trim()) return;
+    event?.preventDefault();
+    const asked = chatQuestion.trim();
+    if (!asked) return;
     if (!scoreData) {
-      setChatError("Load a borrower score before asking the lender coach.");
+      setChatError(t("chat.noScoreLender"));
       return;
     }
+
     setChatLoading(true);
     setChatError("");
-    const userMessage = { role: "user", content: chatQuestion.trim() };
-    const nextMessages = [...chatMessages, userMessage];
+    const optimistic = [...chatMessages, { role: "user", content: asked }];
+    setChatMessages(optimistic);
     setChatQuestion("");
-    setChatMessages(nextMessages);
+
     try {
       const data = await request("/chat/lender", {
         method: "POST",
         body: JSON.stringify({
-          question: chatQuestion,
-          score: scoreData.score,
-          riskLevel: scoreData.riskLevel,
-          tier: scoreData.tier,
-          factors: scoreData.factors || {},
+          question: asked,
+          language,
           subjectUserId: borrowerId,
         }),
       });
-      setChatMessages(data.messages || nextMessages);
+      setChatMessages(data.messages || optimistic);
+      setChatGrounding(data.grounding || "");
     } catch (error) {
-      setChatError(error.message);
+      setChatMessages(chatMessages);
+      setChatQuestion(asked);
+      setChatError(`${t("chat.failed")} ${error.message}`);
     } finally {
       setChatLoading(false);
     }
@@ -157,42 +234,56 @@ export default function LenderDashboard({ session, onLogout }) {
 
   const backToDashboard = () => {
     window.history.pushState({}, "", window.location.pathname);
-    setSelectedRequest(null);
-    setRequestDetail(null);
-    setScoreData(null);
-    setBorrowerId("");
-    setChatQuestion("");
-    setChatMessages([]);
-    setChatError("");
-    setRequestError("");
+    resetDetail();
   };
 
   return (
     <LenderDashboardView
       session={session}
       onLogout={onLogout}
-      requests={loanRequests}
+      requests={filteredRequests}
+      totalRequests={loanRequests.length}
+      requestsState={requestsState}
       pendingCount={pendingCount}
       requestError={requestError}
+      onRefreshRequests={() => loadLoanRequests("refresh")}
       onOpenRequest={openRequest}
+      statusFilter={statusFilter}
+      onStatusFilterChange={setStatusFilter}
+      search={search}
+      onSearchChange={setSearch}
+      visibleCount={visibleCount}
+      onShowMore={() => setVisibleCount((count) => count + PAGE_SIZE)}
       borrowerId={borrowerId}
       onBorrowerIdChange={setBorrowerId}
       loadingScore={loadingScore}
       scoreError={scoreError}
       scoreData={scoreData}
       onLoadScore={loadBorrowerScore}
+      selectedRequest={selectedRequest}
+      requestDetail={requestDetail}
+      detailLoading={detailLoading}
+      detailError={detailError}
+      onBack={backToDashboard}
+      onRetryDetail={() =>
+        selectedRequest && openRequest(selectedRequest, { push: false })
+      }
+      decisionDraft={decisionDraft}
+      onDecisionDraftChange={setDecisionDraft}
+      decisionReason={decisionReason}
+      onDecisionReasonChange={setDecisionReason}
+      decisionError={decisionError}
+      deciding={deciding}
+      onSubmitDecision={submitDecision}
       question={chatQuestion}
       messages={chatMessages}
       chatError={chatError}
       chatLoading={chatLoading}
+      chatHistoryLoading={chatHistoryLoading}
+      chatGrounding={chatGrounding}
       onQuestionChange={setChatQuestion}
       onAskCoach={askCoach}
-      selectedRequest={selectedRequest}
-      requestDetail={requestDetail}
-      detailLoading={detailLoading}
-      onBack={backToDashboard}
-      deciding={deciding}
-      onDecision={decide}
+      onRetryChat={() => askCoach()}
     />
   );
 }

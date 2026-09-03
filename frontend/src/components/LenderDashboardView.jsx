@@ -1,388 +1,801 @@
+import { Suspense, lazy } from "react";
 import { API_URL } from "../api";
-import MarkdownResponse from "./MarkdownResponse";
+import { useLanguage } from "../i18n";
+import {
+  Alert,
+  BackLink,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  DefinitionGrid,
+  EmptyState,
+  Page,
+  ProgressBar,
+  Skeleton,
+  SkeletonList,
+  SplitLayout,
+  TextArea,
+  TextInput,
+  cx,
+} from "../ui/primitives";
 
-const field = (label, value) => (
-  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-    <p className="text-xs text-slate-500">{label}</p>
-    <p className="mt-1 text-sm font-semibold text-slate-900">{value || "-"}</p>
-  </div>
-);
+const ChatPanel = lazy(() => import("./ChatPanel"));
 
-function ScoreCard({ score }) {
-  if (!score)
-    return (
-      <p className="mt-2 text-sm text-slate-500">
-        This borrower has not computed a trust score yet.
-      </p>
-    );
+const STATUS_TONES = {
+  pending: "warning",
+  accepted: "success",
+  declined: "neutral",
+};
 
-  return (
-    <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50 p-4">
-      <div className="flex items-end gap-3">
-        <span className="text-3xl font-bold text-slate-900">{score.score}</span>
-        <span className="text-sm text-slate-600">
-          {score.riskLevel} · {score.tier}
-        </span>
-      </div>
-      <div className="mt-4 space-y-1.5">
-        {Object.entries(score.factors || {})
-          .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-          .map(([factor, value]) => (
-            <div key={factor} className="flex justify-between gap-3 text-xs">
-              <span className="text-slate-600">{factor}</span>
-              <span
-                className={`font-semibold ${Number(value) >= 0 ? "text-green-700" : "text-red-600"}`}
-              >
-                {Number(value).toFixed(4)}
-              </span>
-            </div>
-          ))}
-      </div>
-    </div>
-  );
+const SEVERITY_TONES = { high: "danger", medium: "warning", low: "info" };
+
+const SEASONALITY_TONES = {
+  steady: "success",
+  seasonal: "info",
+  irregular: "warning",
+  indeterminate: "neutral",
+};
+
+function statusLabel(t, status) {
+  return t(`lender.filter${status.charAt(0).toUpperCase()}${status.slice(1)}`);
 }
 
-export function LenderCoach({
-  scoreData,
-  question,
-  messages,
+/* ------------------------------------------------------------------- inbox */
+
+function RequestList({
+  requests,
+  totalRequests,
+  state,
+  pendingCount,
   error,
-  loading,
-  onQuestionChange,
-  onSubmit,
+  onOpen,
+  onRefresh,
+  statusFilter,
+  onStatusFilterChange,
+  search,
+  onSearchChange,
+  visibleCount,
+  onShowMore,
 }) {
+  const { t } = useLanguage();
+  const visible = requests.slice(0, visibleCount);
+  const filtersActive = statusFilter !== "all" || Boolean(search.trim());
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-        AI lender coach
-      </p>
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
-      <div className="mt-4 max-h-[28rem] min-h-32 space-y-3 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-        {messages.length
-          ? messages.map((message, index) => (
-              <div
-                key={`${message.role}-${index}`}
-                className={
-                  message.role === "user"
-                    ? "ml-6 rounded-lg bg-brand-100 p-3 text-brand-950"
-                    : "mr-6 rounded-lg bg-white p-3"
-                }
-              >
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {message.role === "user" ? "You" : "AIRA Coach"}
-                </p>
-                <MarkdownResponse>{message.content}</MarkdownResponse>
-              </div>
-            ))
-          : "Ask the coach for directional, score-grounded decision support."}
-      </div>
-      <form onSubmit={onSubmit} className="mt-4 space-y-3">
-        <textarea
-          rows="6"
-          value={question}
-          onChange={(event) => onQuestionChange(event.target.value)}
-          placeholder={
-            scoreData
-              ? "Ask about this borrower’s score, risk, or decision-support context..."
-              : "This borrower has no score to review yet."
-          }
-          disabled={!scoreData || loading}
-          className="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm text-slate-700 outline-none focus:border-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
+    <Card>
+      <CardHeader
+        eyebrow={t("lender.inbox")}
+        description={t("lender.inboxHelp")}
+        actions={
+          <>
+            {pendingCount > 0 && (
+              <Badge tone="danger">
+                {t("lender.newCount", { count: pendingCount })}
+              </Badge>
+            )}
+            <Button
+              variant="secondary"
+              onClick={onRefresh}
+              disabled={state === "refreshing"}
+            >
+              {state === "refreshing"
+                ? t("common.loading")
+                : t("common.refresh")}
+            </Button>
+          </>
+        }
+      />
+
+      <div className="mt-4 space-y-3">
+        <TextInput
+          label={t("lender.searchPlaceholder")}
+          type="search"
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder={t("lender.searchPlaceholder")}
         />
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={!scoreData || loading || !question.trim()}
-            className="rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Asking..." : "Ask coach"}
-          </button>
+        <div
+          role="group"
+          aria-label={t("lender.filterAll")}
+          className="flex flex-wrap gap-2"
+        >
+          {["all", "pending", "accepted", "declined"].map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={statusFilter === option}
+              onClick={() => onStatusFilterChange(option)}
+              className={cx(
+                "min-h-9 rounded-full border px-3 text-xs font-semibold transition",
+                statusFilter === option
+                  ? "border-brand-700 bg-brand-700 text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:border-brand-400 hover:bg-brand-50",
+              )}
+            >
+              {statusLabel(t, option)}
+            </button>
+          ))}
         </div>
-      </form>
+      </div>
+
+      {error && (
+        <Alert
+          variant="error"
+          className="mt-4"
+          action={
+            <Button variant="secondary" onClick={onRefresh}>
+              {t("common.retry")}
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
+
+      <div className="mt-4">
+        {state === "loading" ? (
+          <SkeletonList rows={3} label={t("common.loading")} />
+        ) : totalRequests === 0 ? (
+          <EmptyState
+            title={t("lender.empty")}
+            description={t("lender.emptyHelp")}
+          />
+        ) : requests.length === 0 ? (
+          <EmptyState
+            title={t("lender.noMatches")}
+            action={
+              filtersActive ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    onStatusFilterChange("all");
+                    onSearchChange("");
+                  }}
+                >
+                  {t("lender.clearFilters")}
+                </Button>
+              ) : null
+            }
+          />
+        ) : (
+          <>
+            <p className="mb-3 text-xs text-slate-500">
+              {t("lender.showingCount", {
+                shown: visible.length,
+                total: requests.length,
+              })}
+            </p>
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              {visible.map((item) => (
+                <li key={item.id} className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => onOpen(item.id)}
+                    className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-brand-400 hover:bg-brand-50 sm:p-4"
+                  >
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <p className="min-w-0 break-words font-semibold text-slate-900">
+                        {item.borrowerName}
+                      </p>
+                      <Badge tone={STATUS_TONES[item.status] || "neutral"}>
+                        {statusLabel(t, item.status)}
+                      </Badge>
+                    </div>
+                    <p className="break-words text-xs text-slate-600">
+                      {item.borrowerPhone}
+                    </p>
+                    <Badge
+                      tone={item.borrowerNidVerified ? "success" : "warning"}
+                    >
+                      {item.borrowerNidVerified
+                        ? t("common.verified")
+                        : t("common.pending")}
+                    </Badge>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {visible.length < requests.length && (
+              <Button variant="secondary" full className="mt-3" onClick={onShowMore}>
+                {t("lender.loadMore")}
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/* --------------------------------------------------------------- score view */
+
+function ScoreDetail({ score, insights }) {
+  const { t } = useLanguage();
+
+  if (!score) {
+    return (
+      <EmptyState icon="—" title={t("lender.noScore")} />
+    );
+  }
+
+  const factors = insights?.factors || score.describedFactors || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-brand-200 bg-brand-50 p-4">
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+          <span className="text-3xl font-bold text-slate-900">
+            {t("lender.scoreOf", { score: score.score })}
+          </span>
+          <div className="flex flex-wrap gap-2">
+            <Badge tone="neutral">
+              {t("lender.riskLevel")}: {String(score.riskLevel || "—").replace(/_/g, " ")}
+            </Badge>
+            <Badge tone="brand">
+              {t("lender.tier")}: {score.tier || "—"}
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      {factors.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold text-slate-900">
+            {t("lender.factors")}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            {t("lender.factorsHelp")}
+          </p>
+          <ul className="mt-3 space-y-2">
+            {factors.map((factor) => {
+              const magnitude = Math.min(1, Math.abs(factor.value) / 1.5);
+              return (
+                <li
+                  key={factor.key}
+                  className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-2.5"
+                >
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <span className="min-w-0 break-words text-xs font-medium text-slate-800">
+                      {factor.label}
+                    </span>
+                    <span
+                      className={cx(
+                        "shrink-0 text-xs font-semibold tabular-nums",
+                        factor.direction === "supporting"
+                          ? "text-green-700"
+                          : "text-red-700",
+                      )}
+                    >
+                      {factor.direction === "supporting"
+                        ? t("lender.supporting")
+                        : t("lender.reducing")}{" "}
+                      {factor.value.toFixed(3)}
+                    </span>
+                  </div>
+                  <span
+                    aria-hidden="true"
+                    className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-slate-200"
+                  >
+                    <span
+                      className={cx(
+                        "h-full rounded-full",
+                        factor.direction === "supporting"
+                          ? "bg-green-500"
+                          : "bg-red-400",
+                      )}
+                      style={{ width: `${Math.max(4, magnitude * 100)}%` }}
+                    />
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
 
-function RequestList({ requests, pendingCount, error, onOpen }) {
+function InsightsCard({ insights }) {
+  const { t } = useLanguage();
+  if (!insights) return null;
+
+  const { seasonality, anomalies, history } = insights;
+
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-          View loan requests
+    <Card>
+      <CardHeader eyebrow={t("lender.seasonality")} />
+      <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <Badge tone={SEASONALITY_TONES[seasonality.pattern] || "neutral"}>
+          {seasonality.pattern}
+        </Badge>
+        <p className="mt-2 text-sm leading-6 text-slate-700">
+          {seasonality.summary}
         </p>
-        {pendingCount > 0 && (
-          <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
-            {pendingCount} new
-          </span>
+      </div>
+
+      <div className="mt-5">
+        <p className="text-sm font-semibold text-slate-900">
+          {t("lender.history")}
+        </p>
+        <div className="mt-2">
+          <ProgressBar
+            value={history.progress}
+            tone={history.sufficientForSixMonths ? "brand" : "warning"}
+            label={`${history.monthsOfHistory}/${history.targetMonths} months · ${history.transactionCount} transactions`}
+          />
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <p className="text-sm font-semibold text-slate-900">
+          {t("lender.anomalies")}
+        </p>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          {t("lender.anomaliesHelp")}
+        </p>
+        {anomalies.length === 0 ? (
+          <Alert variant="success" className="mt-3">
+            {t("lender.noAnomalies")}
+          </Alert>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {anomalies.map((anomaly) => (
+              <li
+                key={anomaly.code}
+                className="min-w-0 rounded-xl border border-slate-200 bg-white p-3"
+              >
+                <Badge tone={SEVERITY_TONES[anomaly.severity]}>
+                  {t(`lender.severity.${anomaly.severity}`)}
+                </Badge>
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  {anomaly.summary}
+                </p>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
-      <p className="mt-2 text-sm text-slate-600">
-        Borrowers who applied to your organization. Open a request to verify
-        their profile, statements, and trust score.
-      </p>
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
-      <div className="mt-4 space-y-3">
-        {requests.length === 0 && !error && (
-          <p className="text-sm text-slate-500">
-            No loan requests have been received yet.
-          </p>
-        )}
-        {requests.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onOpen(item.id)}
-            className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-brand-300"
-          >
-            <div>
-              <p className="font-semibold text-slate-900">
-                {item.borrowerName}
-              </p>
-              <p className="text-xs text-slate-500">
-                {item.borrowerPhone} ·{" "}
-                {item.borrowerNidVerified ? "NID verified" : "NID pending"}
-              </p>
-            </div>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${item.status === "pending" ? "bg-amber-100 text-amber-800" : item.status === "accepted" ? "bg-green-100 text-green-800" : "bg-slate-200 text-slate-700"}`}
-            >
-              {item.status}
-            </span>
-          </button>
-        ))}
-      </div>
-    </section>
+    </Card>
   );
 }
 
-function Statements({ request }) {
+function Statements({ detail }) {
+  const { t } = useLanguage();
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-      <p className="text-sm font-semibold text-slate-800">
-        Uploaded statements
-      </p>
-      {request.statements.length === 0 ? (
-        <p className="mt-2 text-sm text-slate-500">No statements uploaded.</p>
+    <Card>
+      <CardHeader eyebrow={t("lender.statements")} />
+      {detail.statements.length === 0 ? (
+        <div className="mt-3">
+          <EmptyState title={t("lender.noStatements")} />
+        </div>
       ) : (
-        <div className="mt-3 space-y-2">
-          {request.statements.map((statement) => (
-            <div
+        <ul className="mt-3 space-y-2">
+          {detail.statements.map((statement) => (
+            <li
               key={statement.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3"
+              className="flex min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div>
-                <p className="text-sm font-semibold text-slate-900">
+              <div className="min-w-0">
+                <p className="break-all text-sm font-semibold text-slate-900">
                   {statement.filename}
                 </p>
-                <p className="text-xs text-slate-500">
-                  {statement.verified ? "Verified" : "Unverified"}
-                </p>
+                <Badge
+                  tone={statement.verified ? "success" : "warning"}
+                  className="mt-1.5"
+                >
+                  {statement.verified
+                    ? t("common.verified")
+                    : t("common.pending")}
+                </Badge>
               </div>
               <a
-                href={`${API_URL}/loans/requests/${request.request.id}/statements/${statement.id}`}
+                href={`${API_URL}/loans/requests/${detail.request.id}/statements/${statement.id}`}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 transition hover:border-brand-400 hover:bg-brand-50"
               >
-                View statement
+                {t("lender.viewStatement")}
               </a>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-    </section>
+    </Card>
   );
 }
 
-export function LenderReview({ detail, deciding, onDecision }) {
-  const borrower = detail.borrower;
+/* ---------------------------------------------------------------- decision */
+
+function DecisionCard({
+  detail,
+  draft,
+  onDraftChange,
+  reason,
+  onReasonChange,
+  error,
+  deciding,
+  onSubmit,
+}) {
+  const { t } = useLanguage();
+  const status = detail.request.status;
+
+  if (status !== "pending") {
+    return (
+      <Card>
+        <CardHeader eyebrow={t("lender.decision")} />
+        <Alert
+          variant={status === "accepted" ? "success" : "info"}
+          className="mt-3"
+          title={t("lender.decided", { status: statusLabel(t, status) })}
+        >
+          {detail.request.decisionReason && (
+            <p className="break-words">
+              {t("lender.decidedReason", {
+                reason: detail.request.decisionReason,
+              })}
+            </p>
+          )}
+        </Alert>
+      </Card>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-          Borrower profile
-        </p>
-        <h2 className="mt-2 text-2xl font-bold text-slate-900">
-          {borrower.name}
-        </h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Request status:{" "}
-          <span className="font-semibold capitalize">
-            {detail.request.status}
-          </span>
-        </p>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          {field("Phone", borrower.phone)}
-          {field("NID number", borrower.nidNumber)}
-          {field("Date of birth", borrower.dateOfBirth)}
-          {field("Identity", borrower.nidVerified ? "Verified" : "Pending")}
-          {field("Address", borrower.permanentAddress)}
-        </div>
-      </section>
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-        <p className="text-sm font-semibold text-slate-800">Trust score</p>
-        <ScoreCard score={detail.score} />
-      </section>
-      <Statements request={detail} />
-      {detail.request.status === "pending" && (
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => onDecision("accepted")}
+    <Card>
+      <CardHeader
+        eyebrow={t("lender.decision")}
+        description={t("lender.decisionHelp")}
+      />
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <Button
+          variant={draft === "accepted" ? "primary" : "secondary"}
+          aria-pressed={draft === "accepted"}
+          onClick={() => onDraftChange("accepted")}
+          disabled={deciding}
+        >
+          {t("lender.accept")}
+        </Button>
+        <Button
+          variant={draft === "declined" ? "danger" : "secondary"}
+          aria-pressed={draft === "declined"}
+          onClick={() => onDraftChange("declined")}
+          disabled={deciding}
+        >
+          {t("lender.decline")}
+        </Button>
+      </div>
+
+      {draft && (
+        <div className="mt-4 space-y-3">
+          <TextArea
+            required
+            rows={4}
+            label={t("lender.reasonLabel")}
+            help={t("lender.reasonHelp")}
+            placeholder={t("lender.reasonPlaceholder")}
+            value={reason}
+            onChange={(event) => onReasonChange(event.target.value)}
+            error={error}
             disabled={deciding}
-            className="flex-1 rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            Select for loan
-          </button>
-          <button
-            type="button"
-            onClick={() => onDecision("declined")}
-            disabled={deciding}
-            className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
-          >
-            Decline
-          </button>
+          />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              className="sm:flex-1"
+              variant={draft === "accepted" ? "primary" : "danger"}
+              onClick={onSubmit}
+              disabled={deciding || reason.trim().length < 10}
+            >
+              {deciding
+                ? t("lender.submitting")
+                : draft === "accepted"
+                  ? t("lender.confirmAccept")
+                  : t("lender.confirmDecline")}
+            </Button>
+            <Button
+              variant="subtle"
+              className="sm:flex-1"
+              onClick={() => onDraftChange(null)}
+              disabled={deciding}
+            >
+              {t("common.cancel")}
+            </Button>
+          </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
+
+/* ------------------------------------------------------------ review screen */
+
+function ReviewScreen({
+  detail,
+  detailLoading,
+  detailError,
+  onBack,
+  onRetryDetail,
+  decisionDraft,
+  onDecisionDraftChange,
+  decisionReason,
+  onDecisionReasonChange,
+  decisionError,
+  deciding,
+  onSubmitDecision,
+  chatProps,
+}) {
+  const { t } = useLanguage();
+
+  return (
+    <Page>
+      <BackLink onClick={onBack}>{t("common.backToDashboard")}</BackLink>
+
+      {detailError && (
+        <Alert
+          variant="error"
+          title={t("errors.loadProfile")}
+          action={
+            <Button variant="secondary" onClick={onRetryDetail}>
+              {t("common.retry")}
+            </Button>
+          }
+        >
+          {detailError}
+        </Alert>
+      )}
+
+      {detailLoading ? (
+        <Card>
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-8 w-1/2" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        </Card>
+      ) : detail ? (
+        <SplitLayout
+          main={
+            <>
+              <Card>
+                <CardHeader
+                  eyebrow={t("lender.profile")}
+                  title={detail.borrower.name}
+                  actions={
+                    <Badge tone={STATUS_TONES[detail.request.status]}>
+                      {statusLabel(t, detail.request.status)}
+                    </Badge>
+                  }
+                />
+                <div className="mt-4">
+                  <DefinitionGrid
+                    items={[
+                      { label: t("common.phone"), value: detail.borrower.phone },
+                      {
+                        label: t("auth.nidNumber"),
+                        value: detail.borrower.nidNumber,
+                      },
+                      {
+                        label: t("auth.dob"),
+                        value: detail.borrower.dateOfBirth,
+                      },
+                      {
+                        label: t("auth.steps.identity"),
+                        value: detail.borrower.nidVerified
+                          ? t("common.verified")
+                          : t("common.pending"),
+                      },
+                      {
+                        label: t("auth.address"),
+                        value: detail.borrower.permanentAddress,
+                      },
+                    ]}
+                  />
+                </div>
+              </Card>
+
+              <Card>
+                <CardHeader eyebrow={t("lender.trustScore")} />
+                <Alert variant="warning" className="mt-3">
+                  {t("lender.aiLabel")}
+                </Alert>
+                <div className="mt-4">
+                  <ScoreDetail
+                    score={detail.score}
+                    insights={detail.insights}
+                  />
+                </div>
+              </Card>
+
+              <InsightsCard insights={detail.insights} />
+              <Statements detail={detail} />
+            </>
+          }
+          aside={
+            <>
+              <DecisionCard
+                detail={detail}
+                draft={decisionDraft}
+                onDraftChange={onDecisionDraftChange}
+                reason={decisionReason}
+                onReasonChange={onDecisionReasonChange}
+                error={decisionError}
+                deciding={deciding}
+                onSubmit={onSubmitDecision}
+              />
+              <Suspense
+                fallback={
+                  <Card>
+                    <Skeleton className="h-40 w-full" />
+                  </Card>
+                }
+              >
+                <ChatPanel mode="lender" {...chatProps} />
+              </Suspense>
+            </>
+          }
+        />
+      ) : null}
+    </Page>
+  );
+}
+
+/* -------------------------------------------------------------------- view */
 
 export default function LenderDashboardView({
   session,
   onLogout,
   requests,
+  totalRequests,
+  requestsState,
   pendingCount,
   requestError,
+  onRefreshRequests,
   onOpenRequest,
+  statusFilter,
+  onStatusFilterChange,
+  search,
+  onSearchChange,
+  visibleCount,
+  onShowMore,
   borrowerId,
   onBorrowerIdChange,
   loadingScore,
   scoreError,
   scoreData,
   onLoadScore,
+  selectedRequest,
+  requestDetail,
+  detailLoading,
+  detailError,
+  onBack,
+  onRetryDetail,
+  decisionDraft,
+  onDecisionDraftChange,
+  decisionReason,
+  onDecisionReasonChange,
+  decisionError,
+  deciding,
+  onSubmitDecision,
   question,
   messages,
   chatError,
   chatLoading,
+  chatHistoryLoading,
+  chatGrounding,
   onQuestionChange,
   onAskCoach,
-  selectedRequest,
-  requestDetail,
-  detailLoading,
-  onBack,
-  deciding,
-  onDecision,
+  onRetryChat,
 }) {
-  if (detailLoading || requestDetail)
+  const { t } = useLanguage();
+
+  const chatProps = {
+    available: Boolean(scoreData),
+    question,
+    messages,
+    loading: chatLoading,
+    historyLoading: chatHistoryLoading,
+    error: chatError,
+    grounding: chatGrounding,
+    onQuestionChange,
+    onSubmit: onAskCoach,
+    onRetry: onRetryChat,
+  };
+
+  if (selectedRequest) {
     return (
-      <div className="space-y-6">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-brand-400 hover:text-brand-700"
-        >
-          <span aria-hidden="true">←</span> Back to dashboard
-        </button>
-        {requestError && <p className="text-sm text-red-600">{requestError}</p>}
-        {detailLoading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-500 shadow-soft">
-            Loading borrower profile...
-          </div>
-        ) : (
-          <div className="grid items-start gap-6 xl:grid-cols-2">
-            <LenderReview
-              detail={requestDetail}
-              deciding={deciding}
-              onDecision={onDecision}
-            />
-            <div className="xl:sticky xl:top-6 xl:self-start">
-              <LenderCoach
-                scoreData={scoreData}
-                question={question}
-                messages={messages}
-                error={chatError}
-                loading={chatLoading}
-                onQuestionChange={onQuestionChange}
-                onSubmit={onAskCoach}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      <ReviewScreen
+        detail={requestDetail}
+        detailLoading={detailLoading}
+        detailError={detailError}
+        onBack={onBack}
+        onRetryDetail={onRetryDetail}
+        decisionDraft={decisionDraft}
+        onDecisionDraftChange={onDecisionDraftChange}
+        decisionReason={decisionReason}
+        onDecisionReasonChange={onDecisionReasonChange}
+        decisionError={decisionError}
+        deciding={deciding}
+        onSubmitDecision={onSubmitDecision}
+        chatProps={chatProps}
+      />
     );
+  }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
-      <div className="space-y-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-            Lender workspace
-          </p>
-          <h2 className="mt-3 text-3xl font-bold text-slate-900">
-            Welcome, {session.user.name}
-          </h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Lender onboarding is approved only after admin verification.
-          </p>
-          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <label className="block text-sm font-medium text-slate-700">
-              Borrower user ID or phone
-            </label>
-            <div className="mt-3 flex gap-3">
-              <input
+    <Page>
+      <Card>
+        <CardHeader
+          eyebrow={t("lender.workspace")}
+          title={t("lender.welcome", { name: session.user.name })}
+          description={t("lender.subtitle")}
+          actions={
+            <Button variant="secondary" onClick={onLogout}>
+              {t("common.logout")}
+            </Button>
+          }
+        />
+      </Card>
+
+      <SplitLayout
+        main={
+          <RequestList
+            requests={requests}
+            totalRequests={totalRequests}
+            state={requestsState}
+            pendingCount={pendingCount}
+            error={requestError}
+            onOpen={onOpenRequest}
+            onRefresh={onRefreshRequests}
+            statusFilter={statusFilter}
+            onStatusFilterChange={onStatusFilterChange}
+            search={search}
+            onSearchChange={onSearchChange}
+            visibleCount={visibleCount}
+            onShowMore={onShowMore}
+          />
+        }
+        aside={
+          <Card>
+            <CardHeader
+              eyebrow={t("lender.lookup")}
+              description={t("lender.lookupHelp")}
+            />
+            <div className="mt-4 space-y-3">
+              <TextInput
+                label={t("lender.lookupPlaceholder")}
                 value={borrowerId}
                 onChange={(event) => onBorrowerIdChange(event.target.value)}
-                placeholder="Enter borrower ID or phone"
-                className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-500"
+                placeholder={t("lender.lookupPlaceholder")}
               />
-              <button
-                type="button"
+              <Button
+                full
                 onClick={onLoadScore}
                 disabled={loadingScore || !borrowerId.trim()}
-                className="rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loadingScore ? "Loading..." : "Load score"}
-              </button>
+                {loadingScore ? t("common.loading") : t("lender.loadScore")}
+              </Button>
             </div>
-          </div>
-          {scoreError && (
-            <p className="mt-4 text-sm text-red-600">{scoreError}</p>
-          )}
-          {scoreData && (
-            <section className="mt-6 rounded-xl border border-brand-100 bg-brand-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-                Borrower profile
-              </p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                {field("Score", scoreData.score)}
-                {field("Risk", scoreData.riskLevel || "unknown")}
-                {field("Tier", scoreData.tier || "unassigned")}
+
+            {scoreError && (
+              <Alert variant="error" className="mt-4">
+                {scoreError}
+              </Alert>
+            )}
+
+            {scoreData && (
+              <div className="mt-4">
+                <Alert variant="warning" className="mb-3">
+                  {t("lender.aiLabel")}
+                </Alert>
+                <ScoreDetail score={scoreData} insights={null} />
               </div>
-            </section>
-          )}
-        </section>
-        <RequestList
-          requests={requests}
-          pendingCount={pendingCount}
-          error={requestError}
-          onOpen={onOpenRequest}
-        />
-      </div>
-      <aside className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-          Actions
-        </p>
-        <div className="mt-4 space-y-3">
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700"
-          >
-            Logout
-          </button>
-        </div>
-      </aside>
-    </div>
+            )}
+          </Card>
+        }
+      />
+    </Page>
   );
 }

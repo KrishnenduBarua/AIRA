@@ -1,22 +1,43 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { request } from "../api";
+import { request, uploadWithProgress } from "../api";
+import { useLanguage } from "../i18n";
 import BorrowerDashboardView from "./BorrowerDashboardView";
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const SUPPORTED_EXTENSIONS = /\.(pdf|csv)$/i;
+
 export default function BorrowerDashboard({ session, onLogout }) {
+  const { t, language } = useLanguage();
+
   const [consent, setConsent] = useState(Boolean(session.user.consentGiven));
-  const [message, setMessage] = useState("");
-  const [messageIsError, setMessageIsError] = useState(true);
+  const [consentError, setConsentError] = useState("");
   const [savingConsent, setSavingConsent] = useState(false);
-  const [scoreData, setScoreData] = useState(null);
-  const [uploading, setUploading] = useState(false);
+
+  const [profile, setProfile] = useState(null);
+  const [profileState, setProfileState] = useState("loading");
+  const [profileError, setProfileError] = useState("");
+
+  // The chosen file lives in state rather than only on the input element, so a
+  // failed upload can be retried without asking the borrower to find it again.
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadPhase, setUploadPhase] = useState("idle");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadResult, setUploadResult] = useState(null);
   const fileInputRef = useRef(null);
+
   const [lenders, setLenders] = useState([]);
+  const [lendersState, setLendersState] = useState("loading");
   const [lendersError, setLendersError] = useState("");
   const [requestingId, setRequestingId] = useState("");
+
   const [chatQuestion, setChatQuestion] = useState("");
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
   const [chatError, setChatError] = useState("");
+  const [chatGrounding, setChatGrounding] = useState("");
+  const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
   const [chatOpen, setChatOpen] = useState(
     () => new URLSearchParams(window.location.search).get("view") === "chat",
   );
@@ -41,33 +62,38 @@ export default function BorrowerDashboard({ session, onLogout }) {
     setChatOpen(false);
   };
 
-  useEffect(() => {
-    let active = true;
-    request("/score/me")
-      .then((data) => {
-        if (active) setScoreData(data.hasScore === false ? null : data);
-      })
-      .catch(() => {
-        if (active) setScoreData(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [session.user.id]);
+  /* ------------------------------------------------------------- profile */
+
+  const loadProfile = useCallback(async () => {
+    setProfileState("loading");
+    try {
+      const data = await request("/score/me");
+      setProfile(data);
+      setProfileError("");
+      setProfileState("ready");
+    } catch (error) {
+      setProfileError(error.message);
+      setProfileState("error");
+    }
+  }, []);
 
   useEffect(() => {
-    request("/chat/borrower/history")
-      .then((data) => setChatMessages(data.messages || []))
-      .catch(() => setChatMessages([]));
-  }, [session.user.id]);
+    loadProfile();
+  }, [loadProfile, session.user.id]);
 
-  const loadLenders = useCallback(async () => {
+  /* ------------------------------------------------------------- lenders */
+
+  const loadLenders = useCallback(async (mode = "initial") => {
+    if (mode === "initial") setLendersState("loading");
+    else setLendersState("refreshing");
     try {
       const data = await request("/loans/lenders");
       setLenders(data.lenders || []);
       setLendersError("");
+      setLendersState("ready");
     } catch (error) {
       setLendersError(error.message);
+      setLendersState("error");
     }
   }, []);
 
@@ -83,7 +109,7 @@ export default function BorrowerDashboard({ session, onLogout }) {
         method: "POST",
         body: JSON.stringify({ lenderId }),
       });
-      await loadLenders();
+      await loadLenders("refresh");
     } catch (error) {
       setLendersError(error.message);
     } finally {
@@ -91,9 +117,11 @@ export default function BorrowerDashboard({ session, onLogout }) {
     }
   };
 
+  /* ------------------------------------------------------------- consent */
+
   const updateConsent = async () => {
     const nextConsent = !consent;
-    setMessage("");
+    setConsentError("");
     setSavingConsent(true);
     try {
       const data = await request("/auth/consent", {
@@ -102,78 +130,148 @@ export default function BorrowerDashboard({ session, onLogout }) {
       });
       setConsent(Boolean(data.consentGiven));
     } catch (error) {
-      setMessageIsError(true);
-      setMessage(error.message);
+      setConsentError(error.message);
     } finally {
       setSavingConsent(false);
     }
   };
 
-  const uploadStatement = async (event) => {
+  /* -------------------------------------------------------------- upload */
+
+  const chooseFile = (event) => {
     const file = event.target.files?.[0];
-    event.target.value = "";
     if (!file) return;
-    if (!consent) {
-      setMessageIsError(true);
-      setMessage("Please grant consent before uploading a statement.");
+    setUploadResult(null);
+    setUploadPhase("idle");
+    setUploadProgress(0);
+
+    if (!SUPPORTED_EXTENSIONS.test(file.name)) {
+      setSelectedFile(null);
+      setUploadError(t("upload.unsupported"));
       return;
     }
-    setMessage("");
-    setUploading(true);
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setSelectedFile(null);
+      setUploadError(t("upload.tooLarge"));
+      return;
+    }
+
+    setUploadError("");
+    setSelectedFile(file);
+  };
+
+  const startUpload = async () => {
+    if (!selectedFile) return;
+    if (!consent) {
+      setUploadError(t("upload.consentFirst"));
+      return;
+    }
+
+    setUploadError("");
+    setUploadResult(null);
+    setUploadProgress(0);
+    setUploadPhase("upload");
+
     try {
       const body = new FormData();
-      body.append("statement", file);
-      const uploaded = await request("/statements/upload", {
-        method: "POST",
-        body,
+      body.append("statement", selectedFile);
+
+      const uploaded = await uploadWithProgress("/statements/upload", body, {
+        onProgress: (ratio) => {
+          setUploadProgress(ratio);
+          // Once the bytes are sent the server is verifying and parsing; the
+          // single endpoint covers both, so they advance together.
+          if (ratio >= 1) setUploadPhase("verify");
+        },
       });
+
+      setUploadPhase("extract");
+      const features = uploaded.statement?.extractedFeatures || {};
+
+      setUploadPhase("score");
       const result = await request("/score/compute", {
         method: "POST",
-        body: JSON.stringify({
-          userId: session.user.id,
-          features: uploaded.statement.extractedFeatures,
-        }),
+        body: JSON.stringify({ userId: session.user.id, features }),
       });
-      setScoreData(result);
-      setMessageIsError(false);
-      setMessage("Your score is ready.");
+
+      setProfile(result);
+      setProfileState("ready");
+      setUploadResult({
+        history: result.history || uploaded.history || null,
+        filename: uploaded.statement?.filename || selectedFile.name,
+      });
+      setUploadPhase("done");
+      // Chat answers are grounded in the score, so an old transcript's
+      // context is stale once a new score lands.
+      setChatGrounding("");
     } catch (error) {
-      setMessageIsError(true);
-      setMessage(error.message);
-    } finally {
-      setUploading(false);
+      setUploadError(error.message);
+      setUploadPhase("error");
     }
   };
 
+  const resetUpload = () => {
+    setUploadPhase("idle");
+    setUploadProgress(0);
+    setUploadError("");
+    setUploadResult(null);
+  };
+
+  const clearFile = () => {
+    setSelectedFile(null);
+    resetUpload();
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  /* ---------------------------------------------------------------- chat */
+
+  // History is fetched only when the borrower actually opens the chat, so the
+  // dashboard costs one request fewer on every load.
+  const loadChatHistory = useCallback(async () => {
+    setChatHistoryLoading(true);
+    try {
+      const data = await request("/chat/borrower/history");
+      setChatMessages(data.messages || []);
+      setChatError("");
+    } catch (_error) {
+      setChatMessages([]);
+    } finally {
+      setChatHistoryLoading(false);
+      setChatHistoryLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (chatOpen && !chatHistoryLoaded) loadChatHistory();
+  }, [chatOpen, chatHistoryLoaded, loadChatHistory]);
+
   const askCoach = async (event) => {
-    event.preventDefault();
-    if (!chatQuestion.trim()) return;
-    if (!scoreData) {
-      setChatError(
-        "No score is available yet. Please compute a score before asking the AI coach.",
-      );
+    event?.preventDefault();
+    const asked = chatQuestion.trim();
+    if (!asked) return;
+    if (!profile?.hasScore) {
+      setChatError(t("chat.noScore"));
       return;
     }
+
     setChatLoading(true);
     setChatError("");
-    const userMessage = { role: "user", content: chatQuestion.trim() };
-    const nextMessages = [...chatMessages, userMessage];
+    const optimistic = [...chatMessages, { role: "user", content: asked }];
+    setChatMessages(optimistic);
     setChatQuestion("");
-    setChatMessages(nextMessages);
+
     try {
       const data = await request("/chat/borrower", {
         method: "POST",
-        body: JSON.stringify({
-          question: chatQuestion,
-          score: scoreData.score,
-          riskLevel: scoreData.riskLevel,
-          tier: scoreData.tier,
-          factors: scoreData.factors || {},
-        }),
+        body: JSON.stringify({ question: asked, language }),
       });
-      setChatMessages(data.messages || nextMessages);
+      setChatMessages(data.messages || optimistic);
+      setChatGrounding(data.grounding || "");
     } catch (error) {
-      setChatError(error.message);
+      // Roll the optimistic message back into the input so nothing is lost.
+      setChatMessages(chatMessages);
+      setChatQuestion(asked);
+      setChatError(`${t("chat.failed")} ${error.message}`);
     } finally {
       setChatLoading(false);
     }
@@ -181,30 +279,44 @@ export default function BorrowerDashboard({ session, onLogout }) {
 
   return (
     <BorrowerDashboardView
+      session={session}
+      onLogout={onLogout}
       chatOpen={chatOpen}
       onOpenChat={openChat}
       onCloseChat={closeChat}
-      session={session}
-      onLogout={onLogout}
       consent={consent}
+      consentError={consentError}
       savingConsent={savingConsent}
       onToggleConsent={updateConsent}
-      scoreData={scoreData}
-      message={message}
-      messageIsError={messageIsError}
+      profile={profile}
+      profileState={profileState}
+      profileError={profileError}
+      onRetryProfile={loadProfile}
       lenders={lenders}
+      lendersState={lendersState}
       lendersError={lendersError}
       requestingId={requestingId}
       onRequestLender={sendLoanRequest}
-      uploading={uploading}
+      onRefreshLenders={() => loadLenders("refresh")}
       fileInputRef={fileInputRef}
-      onUpload={uploadStatement}
+      selectedFile={selectedFile}
+      onChooseFile={chooseFile}
+      onClearFile={clearFile}
+      onStartUpload={startUpload}
+      onResetUpload={resetUpload}
+      uploadPhase={uploadPhase}
+      uploadProgress={uploadProgress}
+      uploadError={uploadError}
+      uploadResult={uploadResult}
       question={chatQuestion}
       messages={chatMessages}
-      loading={chatLoading}
+      chatLoading={chatLoading}
+      chatHistoryLoading={chatHistoryLoading}
       chatError={chatError}
+      chatGrounding={chatGrounding}
       onQuestionChange={setChatQuestion}
       onAskCoach={askCoach}
+      onRetryChat={() => askCoach()}
     />
   );
 }

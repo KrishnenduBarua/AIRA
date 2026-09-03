@@ -1,5 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { request } from "../api";
+import { useLanguage } from "../i18n";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  EmptyState,
+  Field,
+  Page,
+  SkeletonList,
+  SplitLayout,
+  TextInput,
+  cx,
+} from "../ui/primitives";
 
 const documentFields = [
   ["tradeLicense", "Trade License"],
@@ -18,23 +33,33 @@ const emptyForm = {
 };
 
 export default function AdminDashboard({ session, onLogout }) {
+  const { t } = useLanguage();
+
   const [applications, setApplications] = useState([]);
+  const [listState, setListState] = useState("loading");
   const [approvalView, setApprovalView] = useState("overview");
   const [approvalForm, setApprovalForm] = useState(emptyForm);
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [approvingId, setApprovingId] = useState("");
 
-  const loadApplications = async () => {
+  const loadApplications = useCallback(async (mode = "initial") => {
+    setListState(mode === "initial" ? "loading" : "refreshing");
     try {
       const data = await request("/auth/lender-applications");
       setApplications(data.applications || []);
-    } catch (error) {
-      setMessage(error.message);
+      setError("");
+      setListState("ready");
+    } catch (err) {
+      setError(err.message);
+      setListState("error");
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadApplications();
-  }, []);
+  }, [loadApplications]);
 
   const updateForm = (field, value) => {
     setApprovalForm((current) => ({ ...current, [field]: value }));
@@ -42,7 +67,10 @@ export default function AdminDashboard({ session, onLogout }) {
 
   const createApproval = async (event) => {
     event.preventDefault();
-    setMessage("");
+    setError("");
+    setSuccess("");
+    setCreating(true);
+
     const formData = new FormData();
     formData.append("organizationName", approvalForm.organizationName);
     formData.append("phoneNumber", approvalForm.phoneNumber);
@@ -55,216 +83,245 @@ export default function AdminDashboard({ session, onLogout }) {
         method: "POST",
         body: formData,
       });
-      setMessage(data.message);
+      setSuccess(data.message);
       setApprovalForm(emptyForm);
       setApprovalView("overview");
-      await loadApplications();
-    } catch (error) {
-      setMessage(error.message);
+      await loadApplications("refresh");
+    } catch (err) {
+      // The form is left intact so nothing typed or attached is lost.
+      setError(err.message);
+    } finally {
+      setCreating(false);
     }
   };
 
   const approve = async (applicationId) => {
+    setError("");
+    setSuccess("");
+    setApprovingId(applicationId);
     try {
       const data = await request("/auth/approve-lender", {
         method: "POST",
         body: JSON.stringify({ applicationId }),
       });
-      setMessage(data.message);
-      await loadApplications();
-    } catch (error) {
-      setMessage(error.message);
+      setSuccess(data.message);
+      await loadApplications("refresh");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setApprovingId("");
     }
   };
 
   const reviewApplications = applications.filter(
     (item) => item.status === "pending",
   );
-  const pendingSignup = applications.filter(
-    (item) => item.status === "approved",
-  );
+  const pendingSignup = applications.filter((item) => item.status === "approved");
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-          Admin portal
-        </p>
-        <h2 className="mt-3 text-3xl font-bold text-slate-900">
-          Welcome, {session.user.name}
-        </h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Admin controls lender approval, review documents, and platform
-          oversight.
-        </p>
+    <Page>
+      <Card>
+        <CardHeader
+          eyebrow={t("admin.portal")}
+          title={t("admin.welcome", { name: session.user.name })}
+          description={t("admin.subtitle")}
+          actions={
+            <Button variant="secondary" onClick={onLogout}>
+              {t("common.logout")}
+            </Button>
+          }
+        />
+      </Card>
 
-        {approvalView === "overview" && (
-          <button
-            type="button"
-            onClick={() => setApprovalView("menu")}
-            className="mt-6 w-full rounded-xl border border-slate-300 bg-slate-50 p-5 text-left hover:border-brand-500 hover:bg-brand-50"
-          >
-            <span className="block text-lg font-semibold text-slate-900">
-              Lender approval
-            </span>
-            <span className="mt-1 block text-sm text-slate-600">
-              Create an approval or review approved lenders awaiting signup.
-            </span>
-          </button>
-        )}
+      {error && <Alert variant="error">{error}</Alert>}
+      {success && <Alert variant="success">{success}</Alert>}
 
-        {approvalView === "menu" && (
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => setApprovalView("create")}
-              className="rounded-xl bg-brand-700 p-5 text-left font-semibold text-white"
-            >
-              New lender approval
-            </button>
-            <button
-              type="button"
-              onClick={() => setApprovalView("pending")}
-              className="rounded-xl border border-slate-300 bg-slate-50 p-5 text-left font-semibold text-slate-900"
-            >
-              Pending lender signup
-            </button>
-          </div>
-        )}
-
-        {approvalView === "create" && (
-          <form onSubmit={createApproval} className="mt-6 space-y-3">
-            <button
-              type="button"
-              onClick={() => setApprovalView("menu")}
-              className="text-sm font-semibold text-brand-700 underline"
-            >
-              Back to lender approval
-            </button>
-            <h3 className="pt-2 text-lg font-semibold text-slate-900">
-              New lender approval
-            </h3>
-            <input
-              required
-              placeholder="Organization name"
-              value={approvalForm.organizationName}
-              onChange={(event) =>
-                updateForm("organizationName", event.target.value)
+      <SplitLayout
+        main={
+          <Card>
+            <CardHeader
+              eyebrow={t("admin.lenderApproval")}
+              description={t("admin.lenderApprovalHelp")}
+              actions={
+                approvalView !== "overview" ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setApprovalView("overview")}
+                  >
+                    {t("admin.backToApproval")}
+                  </Button>
+                ) : null
               }
-              className="w-full rounded-xl border border-slate-300 px-3 py-2"
             />
-            <input
-              required
-              placeholder="Lender phone number"
-              value={approvalForm.phoneNumber}
-              onChange={(event) =>
-                updateForm("phoneNumber", event.target.value)
-              }
-              className="w-full rounded-xl border border-slate-300 px-3 py-2"
-            />
-            {documentFields.map(([field, label]) => (
-              <label key={field} className="block text-sm text-slate-600">
-                {label}
-                <input
-                  required
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(event) =>
-                    updateForm(field, event.target.files?.[0] || null)
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
-                />
-              </label>
-            ))}
-            <button
-              type="submit"
-              className="w-full rounded-xl bg-brand-700 px-4 py-3 font-semibold text-white"
-            >
-              Create approval
-            </button>
-          </form>
-        )}
 
-        {approvalView === "pending" && (
-          <div className="mt-6 space-y-3">
-            <button
-              type="button"
-              onClick={() => setApprovalView("menu")}
-              className="text-sm font-semibold text-brand-700 underline"
-            >
-              Back to lender approval
-            </button>
-            <h3 className="pt-2 text-lg font-semibold text-slate-900">
-              Approved lenders awaiting signup
-            </h3>
-            {pendingSignup.length === 0 && (
-              <p className="text-sm text-slate-500">
-                No approved lenders are waiting for signup.
-              </p>
-            )}
-            {pendingSignup.map((application) => (
-              <div
-                key={application.id}
-                className="rounded-xl border border-slate-200 p-4"
-              >
-                <p className="font-semibold text-slate-900">
-                  {application.organizationName}
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  Phone: {application.phoneNumber}
-                </p>
-                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
-                  Approved, OTP signup pending
-                </p>
+            {approvalView === "overview" && (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setApprovalView("create")}
+                  className="min-h-24 rounded-xl bg-brand-700 p-4 text-left text-white transition hover:bg-brand-800"
+                >
+                  <span className="block font-semibold">
+                    {t("admin.newApproval")}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setApprovalView("pending")}
+                  className="min-h-24 rounded-xl border border-slate-300 bg-slate-50 p-4 text-left transition hover:border-brand-400 hover:bg-brand-50"
+                >
+                  <span className="block font-semibold text-slate-900">
+                    {t("admin.pendingSignup")}
+                  </span>
+                  <span className="mt-1 block text-sm text-slate-600">
+                    {pendingSignup.length}
+                  </span>
+                </button>
               </div>
-            ))}
-          </div>
-        )}
-        {message && <p className="mt-4 text-sm text-red-600">{message}</p>}
-      </div>
+            )}
 
-      <aside className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-          Actions
-        </p>
-        <div className="mt-4 space-y-3">
-          <p className="text-sm font-semibold text-slate-700">
-            Approval review
-          </p>
-          {reviewApplications.length === 0 && (
-            <p className="text-sm text-slate-500">
-              No approvals awaiting review.
-            </p>
-          )}
-          {reviewApplications.map((application) => (
-            <div
-              key={application.id}
-              className="rounded-xl border border-slate-200 p-3"
-            >
-              <p className="font-semibold text-slate-900">
-                {application.organizationName}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                {application.phoneNumber}
-              </p>
-              <button
-                type="button"
-                onClick={() => approve(application.id)}
-                className="mt-3 w-full rounded-lg bg-brand-700 px-3 py-2 text-sm font-semibold text-white"
-              >
-                Approve lender
-              </button>
+            {approvalView === "create" && (
+              <form onSubmit={createApproval} className="mt-4 space-y-4">
+                <TextInput
+                  required
+                  label={t("admin.orgName")}
+                  value={approvalForm.organizationName}
+                  onChange={(event) =>
+                    updateForm("organizationName", event.target.value)
+                  }
+                />
+                <TextInput
+                  required
+                  label={t("admin.orgPhone")}
+                  type="tel"
+                  inputMode="numeric"
+                  value={approvalForm.phoneNumber}
+                  onChange={(event) =>
+                    updateForm("phoneNumber", event.target.value)
+                  }
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {documentFields.map(([fieldName, label]) => (
+                    <Field
+                      key={fieldName}
+                      required
+                      label={label}
+                      help={t("admin.docsHelp")}
+                    >
+                      {(props) => (
+                        <>
+                          <input
+                            {...props}
+                            required
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={(event) =>
+                              updateForm(
+                                fieldName,
+                                event.target.files?.[0] || null,
+                              )
+                            }
+                            className={cx(
+                              props.className,
+                              "file:mr-3 file:rounded-lg file:border-0 file:bg-brand-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-brand-800",
+                            )}
+                          />
+                          {approvalForm[fieldName] && (
+                            <p className="mt-1.5 break-all text-xs font-medium text-green-700">
+                              ✓ {approvalForm[fieldName].name}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </Field>
+                  ))}
+                </div>
+                <Button type="submit" full disabled={creating}>
+                  {creating ? t("admin.creating") : t("admin.createApproval")}
+                </Button>
+              </form>
+            )}
+
+            {approvalView === "pending" && (
+              <div className="mt-4">
+                {listState === "loading" ? (
+                  <SkeletonList rows={2} label={t("common.loading")} />
+                ) : pendingSignup.length === 0 ? (
+                  <EmptyState title={t("admin.noPendingSignup")} />
+                ) : (
+                  <ul className="grid gap-3 sm:grid-cols-2">
+                    {pendingSignup.map((application) => (
+                      <li
+                        key={application.id}
+                        className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3"
+                      >
+                        <p className="break-words font-semibold text-slate-900">
+                          {application.organizationName}
+                        </p>
+                        <p className="mt-1 break-words text-sm text-slate-600">
+                          {application.phoneNumber}
+                        </p>
+                        <Badge tone="warning" className="mt-2">
+                          {t("admin.approvedNote")}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </Card>
+        }
+        aside={
+          <Card>
+            <CardHeader
+              eyebrow={t("admin.awaitingReview")}
+              actions={
+                <Button
+                  variant="secondary"
+                  onClick={() => loadApplications("refresh")}
+                  disabled={listState === "refreshing"}
+                >
+                  {listState === "refreshing"
+                    ? t("common.loading")
+                    : t("common.refresh")}
+                </Button>
+              }
+            />
+            <div className="mt-4 space-y-3">
+              {listState === "loading" ? (
+                <SkeletonList rows={2} label={t("common.loading")} />
+              ) : reviewApplications.length === 0 ? (
+                <EmptyState title={t("admin.noReview")} />
+              ) : (
+                reviewApplications.map((application) => (
+                  <div
+                    key={application.id}
+                    className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3"
+                  >
+                    <p className="break-words font-semibold text-slate-900">
+                      {application.organizationName}
+                    </p>
+                    <p className="mt-1 break-words text-xs text-slate-600">
+                      {application.phoneNumber}
+                    </p>
+                    <Button
+                      full
+                      className="mt-3"
+                      onClick={() => approve(application.id)}
+                      disabled={approvingId === application.id}
+                    >
+                      {approvingId === application.id
+                        ? t("admin.approving")
+                        : t("admin.approve")}
+                    </Button>
+                  </div>
+                ))
+              )}
             </div>
-          ))}
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700"
-          >
-            Logout
-          </button>
-        </div>
-      </aside>
-    </div>
+          </Card>
+        }
+      />
+    </Page>
   );
 }
