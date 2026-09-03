@@ -1,9 +1,7 @@
-import { Suspense, lazy } from "react";
 import { useLanguage } from "../i18n";
 import {
   Alert,
   Badge,
-  BackLink,
   Button,
   Card,
   CardHeader,
@@ -15,8 +13,7 @@ import {
   SkeletonList,
   cx,
 } from "../ui/primitives";
-
-const ChatPanel = lazy(() => import("./ChatPanel"));
+import ChatWidget from "./ChatWidget";
 
 const LEVEL_TONES = {
   strong: "success",
@@ -49,13 +46,13 @@ function formatDate(value, language) {
 
 /* ------------------------------------------------------------------ consent */
 
-function ConsentCard({ consent, saving, error, onToggle }) {
+function ConsentCard({ consent, saving, error, onToggle, className }) {
   const { t } = useLanguage();
   const shared = t("consent.shared");
   const notShared = t("consent.notShared");
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader
         eyebrow={t("consent.title")}
         description={t("consent.lead")}
@@ -181,7 +178,7 @@ function TierCard({ profile, state, error, onRetry, language }) {
   const meaning = t(`borrower.tierMeaning.${profile.tier}`);
 
   return (
-    <Card>
+    <Card className="borrower-tier-card">
       <CardHeader
         eyebrow={t("borrower.tierTitle")}
         actions={
@@ -250,7 +247,7 @@ function CategoriesCard({ profile }) {
     .slice(0, 3);
 
   return (
-    <Card>
+    <Card className="borrower-tier-card">
       <CardHeader
         eyebrow={t("borrower.categories")}
         description={t("borrower.categoriesHelp")}
@@ -330,7 +327,7 @@ function HistoryCard({ profile }) {
   const sufficient = history.sufficientForSixMonths;
 
   return (
-    <Card>
+    <Card className="borrower-tier-card">
       <CardHeader eyebrow={t("borrower.historyTitle")} />
       <div className="mt-4 flex flex-wrap gap-2">
         <Badge tone="neutral">
@@ -384,7 +381,7 @@ function UploadCard({
   const activeIndex = UPLOAD_STEPS.indexOf(phase);
 
   return (
-    <Card>
+    <Card className="borrower-upload-card">
       <CardHeader eyebrow={t("upload.title")} description={t("upload.help")} />
 
       {!consent && (
@@ -634,7 +631,7 @@ function LenderList({
   const { t } = useLanguage();
 
   return (
-    <Card>
+    <Card className="borrower-lenders-card">
       <CardHeader
         eyebrow={t("lenders.title")}
         description={t("lenders.subtitle")}
@@ -754,40 +751,9 @@ export default function BorrowerDashboardView({
 }) {
   const { t, language } = useLanguage();
 
-  const chatFallback = (
-    <Card>
-      <Skeleton className="h-40 w-full" />
-    </Card>
-  );
-
-  if (chatOpen) {
-    return (
-      <Page>
-        <BackLink onClick={onCloseChat}>{t("common.backToDashboard")}</BackLink>
-        <div className="mx-auto w-full max-w-3xl">
-          <Suspense fallback={chatFallback}>
-            <ChatPanel
-              mode="borrower"
-              available={Boolean(profile?.hasScore)}
-              question={question}
-              messages={messages}
-              loading={chatLoading}
-              historyLoading={chatHistoryLoading}
-              error={chatError}
-              grounding={chatGrounding}
-              onQuestionChange={onQuestionChange}
-              onSubmit={onAskCoach}
-              onRetry={onRetryChat}
-            />
-          </Suspense>
-        </div>
-      </Page>
-    );
-  }
-
   return (
-    <Page>
-      <Card>
+    <Page className="dashboard-page borrower-page">
+      <Card className="dashboard-hero borrower-hero">
         <CardHeader
           eyebrow={t("app.borrower")}
           title={t("borrower.welcome", { name: session.user.name })}
@@ -800,63 +766,119 @@ export default function BorrowerDashboardView({
         />
       </Card>
 
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start">
-        <div className="min-w-0 space-y-4 sm:space-y-6">
-          <TierCard
-            profile={profile}
-            state={profileState}
-            error={profileError}
-            onRetry={onRetryProfile}
-            language={language}
-          />
+      <div className="dashboard-summary borrower-summary" aria-label={t("borrower.tierTitle")}>
+        <Card as="article" className="dashboard-stat">
+          <span className="dashboard-stat-icon" aria-hidden="true">↗</span>
+          <div>
+            <p className="dashboard-stat-label">{t("borrower.tierTitle")}</p>
+            <p className="dashboard-stat-value">
+              {profile?.hasScore ? t(`borrower.tiers.${profile.tier}`) : t("common.pending")}
+            </p>
+          </div>
+        </Card>
+        <Card as="article" className="dashboard-stat">
+          <span className="dashboard-stat-icon" aria-hidden="true">✓</span>
+          <div>
+            <p className="dashboard-stat-label">{t("consent.title")}</p>
+            <p className="dashboard-stat-value">
+              {consent ? t("consent.granted") : t("consent.notGranted")}
+            </p>
+          </div>
+        </Card>
+        <Card as="article" className="dashboard-stat">
+          <span className="dashboard-stat-icon" aria-hidden="true">◌</span>
+          <div>
+            <p className="dashboard-stat-label">{t("borrower.historyTitle")}</p>
+            <p className="dashboard-stat-value">
+              {profile?.history
+                ? t("borrower.historyMonths", { months: profile.history.monthsOfHistory })
+                : t("common.pending")}
+            </p>
+          </div>
+        </Card>
+      </div>
+
+      <ConsentCard
+        consent={consent}
+        saving={savingConsent}
+        error={consentError}
+        onToggle={onToggleConsent}
+        className="borrower-consent-card"
+      />
+
+      <div className="dashboard-section-heading">
+        <div>
+          <p className="dashboard-section-kicker">{t("borrower.tierTitle")}</p>
+          <h2>{profile?.hasScore ? t("borrower.categories") : t("upload.title")}</h2>
+          <p>{profile?.hasScore ? t("borrower.categoriesHelp") : t("upload.help")}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2 lg:items-stretch borrower-primary-grid">
+        <TierCard
+          profile={profile}
+          state={profileState}
+          error={profileError}
+          onRetry={onRetryProfile}
+          language={language}
+        />
+        <UploadCard
+          consent={consent}
+          fileInputRef={fileInputRef}
+          selectedFile={selectedFile}
+          onChooseFile={onChooseFile}
+          onClearFile={onClearFile}
+          onStartUpload={onStartUpload}
+          onResetUpload={onResetUpload}
+          phase={uploadPhase}
+          progress={uploadProgress}
+          error={uploadError}
+          result={uploadResult}
+        />
+      </div>
+
+      {(profile?.hasScore || profile?.hasStatement) && (
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2 lg:items-start borrower-details-grid">
           <CategoriesCard profile={profile} />
           <HistoryCard profile={profile} />
         </div>
+      )}
 
-        <div className="min-w-0 space-y-4 sm:space-y-6">
-          <ConsentCard
-            consent={consent}
-            saving={savingConsent}
-            error={consentError}
-            onToggle={onToggleConsent}
-          />
-          <UploadCard
-            consent={consent}
-            fileInputRef={fileInputRef}
-            selectedFile={selectedFile}
-            onChooseFile={onChooseFile}
-            onClearFile={onClearFile}
-            onStartUpload={onStartUpload}
-            onResetUpload={onResetUpload}
-            phase={uploadPhase}
-            progress={uploadProgress}
-            error={uploadError}
-            result={uploadResult}
-          />
-          <Card>
-            <CardHeader
-              eyebrow={t("chat.borrowerTitle")}
-              description={t("borrower.chatIntro")}
-            />
-            <Button full className="mt-4" onClick={onOpenChat}>
-              {t("borrower.openChat")}
-            </Button>
-          </Card>
-        </div>
-
-        <div className="min-w-0 lg:col-span-2">
-          <LenderList
-            lenders={lenders}
-            state={lendersState}
-            error={lendersError}
-            requestingId={requestingId}
-            onRequest={onRequestLender}
-            onRefresh={onRefreshLenders}
-            canApply={consent}
-            language={language}
-          />
+      <div className="dashboard-section-heading lender-section-heading">
+        <div>
+          <p className="dashboard-section-kicker">{t("app.borrower")}</p>
+          <h2>{t("lenders.title")}</h2>
+          <p>{t("lenders.subtitle")}</p>
         </div>
       </div>
+
+      <LenderList
+        lenders={lenders}
+        state={lendersState}
+        error={lendersError}
+        requestingId={requestingId}
+        onRequest={onRequestLender}
+        onRefresh={onRefreshLenders}
+        canApply={consent}
+        language={language}
+      />
+
+      <ChatWidget
+        open={chatOpen}
+        onOpen={onOpenChat}
+        onClose={onCloseChat}
+        mode="borrower"
+        available={Boolean(profile?.hasScore)}
+        question={question}
+        messages={messages}
+        loading={chatLoading}
+        historyLoading={chatHistoryLoading}
+        error={chatError}
+        grounding={chatGrounding}
+        onQuestionChange={onQuestionChange}
+        onSubmit={onAskCoach}
+        onRetry={onRetryChat}
+      />
     </Page>
   );
 }

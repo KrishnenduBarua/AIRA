@@ -1,4 +1,3 @@
-import { Suspense, lazy } from "react";
 import { API_URL } from "../api";
 import { useLanguage } from "../i18n";
 import {
@@ -19,8 +18,7 @@ import {
   TextInput,
   cx,
 } from "../ui/primitives";
-
-const ChatPanel = lazy(() => import("./ChatPanel"));
+import ChatWidget from "./ChatWidget";
 
 const STATUS_TONES = {
   pending: "warning",
@@ -63,7 +61,7 @@ function RequestList({
   const filtersActive = statusFilter !== "all" || Boolean(search.trim());
 
   return (
-    <Card>
+    <Card className="lender-inbox-card">
       <CardHeader
         eyebrow={t("lender.inbox")}
         description={t("lender.inboxHelp")}
@@ -172,7 +170,7 @@ function RequestList({
                   <button
                     type="button"
                     onClick={() => onOpen(item.id)}
-                    className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-brand-400 hover:bg-brand-50 sm:p-4"
+                    className="lender-request-card flex w-full min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-brand-400 hover:bg-brand-50 sm:p-4"
                   >
                     <div className="flex min-w-0 items-start justify-between gap-2">
                       <p className="min-w-0 break-words font-semibold text-slate-900">
@@ -525,11 +523,14 @@ function ReviewScreen({
   deciding,
   onSubmitDecision,
   chatProps,
+  chatOpen,
+  onOpenChat,
+  onCloseChat,
 }) {
   const { t } = useLanguage();
 
   return (
-    <Page>
+    <Page className="dashboard-page lender-review-page">
       <BackLink onClick={onBack}>{t("common.backToDashboard")}</BackLink>
 
       {detailError && (
@@ -556,47 +557,48 @@ function ReviewScreen({
           </div>
         </Card>
       ) : detail ? (
-        <SplitLayout
-          main={
-            <>
-              <Card>
-                <CardHeader
-                  eyebrow={t("lender.profile")}
-                  title={detail.borrower.name}
-                  actions={
-                    <Badge tone={STATUS_TONES[detail.request.status]}>
-                      {statusLabel(t, detail.request.status)}
-                    </Badge>
-                  }
-                />
-                <div className="mt-4">
-                  <DefinitionGrid
-                    items={[
-                      { label: t("common.phone"), value: detail.borrower.phone },
-                      {
-                        label: t("auth.nidNumber"),
-                        value: detail.borrower.nidNumber,
-                      },
-                      {
-                        label: t("auth.dob"),
-                        value: detail.borrower.dateOfBirth,
-                      },
-                      {
-                        label: t("auth.steps.identity"),
-                        value: detail.borrower.nidVerified
-                          ? t("common.verified")
-                          : t("common.pending"),
-                      },
-                      {
-                        label: t("auth.address"),
-                        value: detail.borrower.permanentAddress,
-                      },
-                    ]}
+        <>
+          <SplitLayout
+            main={
+              <>
+                <Card className="review-profile-card">
+                  <CardHeader
+                    eyebrow={t("lender.profile")}
+                    title={detail.borrower.name}
+                    actions={
+                      <Badge tone={STATUS_TONES[detail.request.status]}>
+                        {statusLabel(t, detail.request.status)}
+                      </Badge>
+                    }
                   />
-                </div>
-              </Card>
+                  <div className="mt-4">
+                    <DefinitionGrid
+                      items={[
+                        { label: t("common.phone"), value: detail.borrower.phone },
+                        {
+                          label: t("auth.nidNumber"),
+                          value: detail.borrower.nidNumber,
+                        },
+                        {
+                          label: t("auth.dob"),
+                          value: detail.borrower.dateOfBirth,
+                        },
+                        {
+                          label: t("auth.steps.identity"),
+                          value: detail.borrower.nidVerified
+                            ? t("common.verified")
+                            : t("common.pending"),
+                        },
+                        {
+                          label: t("auth.address"),
+                          value: detail.borrower.permanentAddress,
+                        },
+                      ]}
+                    />
+                  </div>
+                </Card>
 
-              <Card>
+                <Card className="review-score-card">
                 <CardHeader eyebrow={t("lender.trustScore")} />
                 <Alert variant="warning" className="mt-3">
                   {t("lender.aiLabel")}
@@ -611,32 +613,31 @@ function ReviewScreen({
 
               <InsightsCard insights={detail.insights} />
               <Statements detail={detail} />
-            </>
-          }
-          aside={
-            <>
-              <DecisionCard
-                detail={detail}
-                draft={decisionDraft}
-                onDraftChange={onDecisionDraftChange}
-                reason={decisionReason}
-                onReasonChange={onDecisionReasonChange}
-                error={decisionError}
-                deciding={deciding}
-                onSubmit={onSubmitDecision}
-              />
-              <Suspense
-                fallback={
-                  <Card>
-                    <Skeleton className="h-40 w-full" />
-                  </Card>
-                }
-              >
-                <ChatPanel mode="lender" {...chatProps} />
-              </Suspense>
-            </>
-          }
-        />
+              </>
+            }
+            aside={
+              <>
+                <DecisionCard
+                  detail={detail}
+                  draft={decisionDraft}
+                  onDraftChange={onDecisionDraftChange}
+                  reason={decisionReason}
+                  onReasonChange={onDecisionReasonChange}
+                  error={decisionError}
+                  deciding={deciding}
+                  onSubmit={onSubmitDecision}
+                />
+              </>
+            }
+          />
+          <ChatWidget
+            open={chatOpen}
+            onOpen={onOpenChat}
+            onClose={onCloseChat}
+            mode="lender"
+            {...chatProps}
+          />
+        </>
       ) : null}
     </Page>
   );
@@ -651,6 +652,8 @@ export default function LenderDashboardView({
   totalRequests,
   requestsState,
   pendingCount,
+  acceptedCount,
+  declinedCount,
   requestError,
   onRefreshRequests,
   onOpenRequest,
@@ -679,6 +682,9 @@ export default function LenderDashboardView({
   decisionError,
   deciding,
   onSubmitDecision,
+  chatOpen,
+  onOpenChat,
+  onCloseChat,
   question,
   messages,
   chatError,
@@ -720,13 +726,16 @@ export default function LenderDashboardView({
         deciding={deciding}
         onSubmitDecision={onSubmitDecision}
         chatProps={chatProps}
+        chatOpen={chatOpen}
+        onOpenChat={onOpenChat}
+        onCloseChat={onCloseChat}
       />
     );
   }
 
   return (
-    <Page>
-      <Card>
+    <Page className="dashboard-page lender-page">
+      <Card className="dashboard-hero lender-hero">
         <CardHeader
           eyebrow={t("lender.workspace")}
           title={t("lender.welcome", { name: session.user.name })}
@@ -739,63 +748,96 @@ export default function LenderDashboardView({
         />
       </Card>
 
-      <SplitLayout
-        main={
-          <RequestList
-            requests={requests}
-            totalRequests={totalRequests}
-            state={requestsState}
-            pendingCount={pendingCount}
-            error={requestError}
-            onOpen={onOpenRequest}
-            onRefresh={onRefreshRequests}
-            statusFilter={statusFilter}
-            onStatusFilterChange={onStatusFilterChange}
-            search={search}
-            onSearchChange={onSearchChange}
-            visibleCount={visibleCount}
-            onShowMore={onShowMore}
-          />
-        }
-        aside={
-          <Card>
-            <CardHeader
-              eyebrow={t("lender.lookup")}
-              description={t("lender.lookupHelp")}
+      <div className="dashboard-summary lender-summary" aria-label={t("lender.inbox")}>
+        <Card as="article" className="dashboard-stat">
+          <span className="dashboard-stat-icon" aria-hidden="true">!</span>
+          <div>
+            <p className="dashboard-stat-label">{t("lender.filterPending")}</p>
+            <p className="dashboard-stat-value">{pendingCount}</p>
+          </div>
+        </Card>
+        <Card as="article" className="dashboard-stat">
+          <span className="dashboard-stat-icon" aria-hidden="true">✓</span>
+          <div>
+            <p className="dashboard-stat-label">{t("lender.filterAccepted")}</p>
+            <p className="dashboard-stat-value">{acceptedCount}</p>
+          </div>
+        </Card>
+        <Card as="article" className="dashboard-stat">
+          <span className="dashboard-stat-icon" aria-hidden="true">—</span>
+          <div>
+            <p className="dashboard-stat-label">{t("lender.filterDeclined")}</p>
+            <p className="dashboard-stat-value">{declinedCount}</p>
+          </div>
+        </Card>
+        <Card as="article" className="dashboard-stat dashboard-stat-total">
+          <span className="dashboard-stat-icon" aria-hidden="true">#</span>
+          <div>
+            <p className="dashboard-stat-label">{t("lender.filterAll")}</p>
+            <p className="dashboard-stat-value">{totalRequests}</p>
+          </div>
+        </Card>
+      </div>
+
+      <div className="lender-workspace-grid">
+        <SplitLayout
+          main={
+            <RequestList
+              requests={requests}
+              totalRequests={totalRequests}
+              state={requestsState}
+              pendingCount={pendingCount}
+              error={requestError}
+              onOpen={onOpenRequest}
+              onRefresh={onRefreshRequests}
+              statusFilter={statusFilter}
+              onStatusFilterChange={onStatusFilterChange}
+              search={search}
+              onSearchChange={onSearchChange}
+              visibleCount={visibleCount}
+              onShowMore={onShowMore}
             />
-            <div className="mt-4 space-y-3">
-              <TextInput
-                label={t("lender.lookupPlaceholder")}
-                value={borrowerId}
-                onChange={(event) => onBorrowerIdChange(event.target.value)}
-                placeholder={t("lender.lookupPlaceholder")}
+          }
+          aside={
+            <Card className="lender-lookup-card">
+              <CardHeader
+                eyebrow={t("lender.lookup")}
+                description={t("lender.lookupHelp")}
               />
-              <Button
-                full
-                onClick={onLoadScore}
-                disabled={loadingScore || !borrowerId.trim()}
-              >
-                {loadingScore ? t("common.loading") : t("lender.loadScore")}
-              </Button>
-            </div>
-
-            {scoreError && (
-              <Alert variant="error" className="mt-4">
-                {scoreError}
-              </Alert>
-            )}
-
-            {scoreData && (
-              <div className="mt-4">
-                <Alert variant="warning" className="mb-3">
-                  {t("lender.aiLabel")}
-                </Alert>
-                <ScoreDetail score={scoreData} insights={null} />
+              <div className="mt-4 space-y-3">
+                <TextInput
+                  label={t("lender.lookupPlaceholder")}
+                  value={borrowerId}
+                  onChange={(event) => onBorrowerIdChange(event.target.value)}
+                  placeholder={t("lender.lookupPlaceholder")}
+                />
+                <Button
+                  full
+                  onClick={onLoadScore}
+                  disabled={loadingScore || !borrowerId.trim()}
+                >
+                  {loadingScore ? t("common.loading") : t("lender.loadScore")}
+                </Button>
               </div>
-            )}
-          </Card>
-        }
-      />
+
+              {scoreError && (
+                <Alert variant="error" className="mt-4">
+                  {scoreError}
+                </Alert>
+              )}
+
+              {scoreData && (
+                <div className="mt-4">
+                  <Alert variant="warning" className="mb-3">
+                    {t("lender.aiLabel")}
+                  </Alert>
+                  <ScoreDetail score={scoreData} insights={null} />
+                </div>
+              )}
+            </Card>
+          }
+        />
+      </div>
     </Page>
   );
 }

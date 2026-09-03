@@ -284,6 +284,8 @@ const en = {
     noScore: "There is no trust profile to talk about yet.",
     noScoreLender: "This applicant has no trust score yet, so answers would have no evidence to rest on.",
     failed: "The helper could not answer. Your question was kept.",
+    open: "Open AIRA helper",
+    close: "Close AIRA helper",
     grounding: {
       label: "Based on",
       score_factors: "Score factors",
@@ -667,6 +669,8 @@ const bn = {
     noScoreLender:
       "This applicant has no trust score yet, so answers would have no evidence to rest on.",
     failed: "সহায়ক উত্তর দিতে পারেনি। আপনার প্রশ্নটি রাখা হয়েছে।",
+    open: "AIRA সহায়ক খুলুন",
+    close: "AIRA সহায়ক বন্ধ করুন",
     grounding: {
       label: "ভিত্তি",
       score_factors: "স্কোরের কারণসমূহ",

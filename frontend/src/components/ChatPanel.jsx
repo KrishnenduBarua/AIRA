@@ -26,6 +26,8 @@ export default function ChatPanel({
   onQuestionChange,
   onSubmit,
   onRetry,
+  embedded = false,
+  onClose,
 }) {
   const { t } = useLanguage();
   const isBorrower = mode === "borrower";
@@ -48,18 +50,59 @@ export default function ChatPanel({
   };
 
   return (
-    <Card>
-      <CardHeader
-        eyebrow={t(isBorrower ? "chat.borrowerTitle" : "chat.lenderTitle")}
-        description={t(isBorrower ? "chat.borrowerIntro" : "chat.lenderIntro")}
-        actions={
-          grounding ? (
+    <Card
+      className={
+        embedded ? "overflow-hidden border-0 !p-0 !shadow-none" : undefined
+      }
+    >
+      {embedded ? (
+        <div className="flex items-start gap-3 bg-brand-700 px-4 py-3 text-white">
+          <img
+            src="/favicon.ico"
+            alt=""
+            width="40"
+            height="40"
+            className="h-10 w-10 shrink-0 rounded-full bg-white object-cover p-1"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">
+              {t(isBorrower ? "chat.borrowerTitle" : "chat.lenderTitle")}
+            </p>
+            <p className="mt-0.5 text-xs leading-5 text-white/80">
+              {t(isBorrower ? "chat.borrowerIntro" : "chat.lenderIntro")}
+            </p>
+          </div>
+          {grounding && (
             <Badge tone="info">
               {t("chat.grounding.label")}: {t(`chat.grounding.${grounding}`)}
             </Badge>
-          ) : null
-        }
-      />
+          )}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t("chat.close")}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-2xl leading-none text-white/85 transition hover:bg-white/15 hover:text-white"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      ) : (
+        <CardHeader
+          eyebrow={t(isBorrower ? "chat.borrowerTitle" : "chat.lenderTitle")}
+          description={t(isBorrower ? "chat.borrowerIntro" : "chat.lenderIntro")}
+          actions={
+            grounding ? (
+              <Badge tone="info">
+                {t("chat.grounding.label")}: {t(`chat.grounding.${grounding}`)}
+              </Badge>
+            ) : null
+          }
+        />
+      )}
+
+      <div className={embedded ? "p-3 sm:p-4" : undefined}>
 
       {!isBorrower && (
         <Alert variant="warning" className="mt-4">
@@ -190,6 +233,7 @@ export default function ChatPanel({
           </Button>
         </div>
       </form>
+      </div>
     </Card>
   );
 }

@@ -79,19 +79,18 @@ h4 {
   }
 }
 
-/* A calm AIRA surface system: seafoam and teal carry the brand, while the
-   warm highlight and lilac tint keep long dashboard sessions from feeling
-   clinical without competing with the data. */
+/* A calm AIRA surface system: seafoam and teal carry the brand while keeping
+   long dashboard sessions comfortable and easy to scan. */
 :root {
   --aira-ink: #173a32;
   --aira-muted: #5c746b;
-  --aira-page: #e8f3ee;
+  --aira-page: #eaf6f0;
   --aira-surface: #fffdfa;
-  --aira-surface-tint: #f0f8f4;
-  --aira-border: #d3e5dc;
-  --aira-teal: #136653;
-  --aira-teal-soft: #d8f2e6;
-  --aira-lilac: #f1effc;
+  --aira-surface-tint: #f1faf5;
+  --aira-border: #cfe5d9;
+  --aira-teal: #146a55;
+  --aira-teal-soft: #d9f2e5;
+  --aira-lilac: #edf7f2;
   --aira-amber: #e4a84f;
 }
 
@@ -101,9 +100,9 @@ body {
 
 .aira-app-shell {
   background:
-    radial-gradient(circle at 96% 3%, rgba(216, 242, 230, 0.9), transparent 25rem),
-    radial-gradient(circle at 4% 35%, rgba(241, 239, 252, 0.72), transparent 22rem),
-    linear-gradient(145deg, #eef8f3 0%, var(--aira-page) 48%, #f4f1fb 100%);
+    radial-gradient(circle at 96% 3%, rgba(194, 235, 214, 0.72), transparent 25rem),
+    radial-gradient(circle at 4% 35%, rgba(225, 243, 234, 0.78), transparent 22rem),
+    linear-gradient(145deg, #f1faf5 0%, var(--aira-page) 55%, #f4faf7 100%);
 }
 
 .aira-header {
@@ -112,7 +111,7 @@ body {
   overflow: hidden;
   border-color: var(--aira-border) !important;
   background:
-    linear-gradient(110deg, rgba(255, 253, 250, 0.98), rgba(241, 250, 246, 0.96) 68%, rgba(246, 243, 253, 0.95)) !important;
+    linear-gradient(110deg, rgba(255, 253, 250, 0.98), rgba(241, 250, 246, 0.97) 68%, rgba(235, 248, 240, 0.96)) !important;
   box-shadow: 0 14px 34px rgba(35, 92, 72, 0.1) !important;
 }
 
@@ -124,7 +123,7 @@ body {
   width: 15rem;
   height: 15rem;
   border-radius: 999px;
-  background: rgba(228, 168, 79, 0.12);
+  background: rgba(49, 167, 126, 0.1);
   content: "";
   filter: blur(2px);
 }
@@ -135,7 +134,7 @@ body {
   bottom: 0;
   left: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--aira-teal) 0%, #32b88f 62%, var(--aira-amber) 100%);
+  background: linear-gradient(90deg, var(--aira-teal) 0%, #32b88f 62%, #9bd9bc 100%);
   content: "";
 }
 
@@ -230,6 +229,246 @@ body {
 @media (max-width: 639px) {
   .aira-header::before {
     right: -5rem;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Dashboard comfort system
+   ------------------------------------------------------------------------- */
+
+.dashboard-page {
+  --dashboard-ink: #173a32;
+  --dashboard-muted: #5c746b;
+  --dashboard-line: #cfe5d9;
+  --dashboard-soft: #f1faf5;
+  --dashboard-accent: #146a55;
+}
+
+.dashboard-page .aira-card {
+  border-radius: 1.25rem;
+}
+
+.dashboard-hero {
+  position: relative;
+  overflow: hidden;
+  border-top: 4px solid var(--dashboard-accent) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 253, 250, 0.98), rgba(239, 250, 244, 0.94)) !important;
+}
+
+.dashboard-hero::after {
+  position: absolute;
+  right: -4rem;
+  bottom: -7rem;
+  width: 17rem;
+  height: 17rem;
+  border-radius: 50%;
+  background: rgba(52, 185, 145, 0.09);
+  content: "";
+}
+
+.dashboard-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-summary {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.borrower-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.lender-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dashboard-stat {
+  display: flex;
+  min-height: 6.6rem;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem !important;
+  background: rgba(255, 253, 250, 0.82) !important;
+}
+
+.dashboard-stat-icon {
+  display: grid;
+  width: 2.45rem;
+  height: 2.45rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.8rem;
+  background: var(--dashboard-soft);
+  color: var(--dashboard-accent);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.dashboard-stat-label {
+  margin: 0;
+  color: var(--dashboard-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.dashboard-stat-value {
+  margin: 0.22rem 0 0;
+  color: var(--dashboard-ink);
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.lender-summary .dashboard-stat:nth-child(1) .dashboard-stat-icon {
+  background: #fff2d7;
+  color: #9a681b;
+}
+
+.lender-summary .dashboard-stat:nth-child(2) .dashboard-stat-icon {
+  background: #d9f2e5;
+  color: #146a55;
+}
+
+.lender-summary .dashboard-stat:nth-child(3) .dashboard-stat-icon {
+  background: #e9e5fb;
+  color: #685bb2;
+}
+
+.lender-summary .dashboard-stat:nth-child(4) .dashboard-stat-icon {
+  background: #dff1f3;
+  color: #267080;
+}
+
+.dashboard-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0.15rem 0;
+}
+
+.dashboard-section-heading h2 {
+  margin: 0.25rem 0 0;
+  color: var(--dashboard-ink);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.25rem, 2.4vw, 1.65rem);
+  line-height: 1.2;
+}
+
+.dashboard-section-heading p:last-child {
+  max-width: 46rem;
+  margin: 0.4rem 0 0;
+  color: var(--dashboard-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.dashboard-section-kicker {
+  margin: 0 !important;
+  color: var(--dashboard-accent) !important;
+  font-size: 0.68rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.borrower-primary-grid > *,
+.borrower-details-grid > * {
+  min-width: 0;
+}
+
+.borrower-primary-grid > * > .aira-card {
+  height: 100%;
+}
+
+.borrower-consent-card {
+  background: linear-gradient(135deg, rgba(244, 251, 247, 0.94), rgba(255, 253, 250, 0.94)) !important;
+}
+
+.borrower-consent-card .bg-brand-50 {
+  background: #e4f6ec !important;
+}
+
+.borrower-consent-card .bg-slate-50 {
+  background: #f4f8f6 !important;
+}
+
+.borrower-lenders-card {
+  border-top: 3px solid #35aa84 !important;
+}
+
+.borrower-lenders-card ul {
+  align-items: stretch;
+}
+
+.borrower-lenders-card li {
+  height: 100%;
+  background: rgba(241, 250, 245, 0.72);
+}
+
+.lender-workspace-grid > .grid {
+  align-items: start;
+}
+
+.lender-inbox-card {
+  border-top: 3px solid #35aa84 !important;
+}
+
+.lender-lookup-card {
+  border-top: 3px solid #8d7bd8 !important;
+  background: linear-gradient(160deg, rgba(249, 247, 255, 0.97), rgba(255, 253, 250, 0.95)) !important;
+}
+
+.lender-request-card {
+  min-height: 8.5rem;
+  background: rgba(241, 250, 245, 0.72) !important;
+}
+
+.lender-request-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(35, 92, 72, 0.08);
+}
+
+.lender-review-page > .aira-card,
+.lender-review-page .review-profile-card,
+.lender-review-page .review-score-card {
+  border-top: 3px solid var(--dashboard-accent) !important;
+}
+
+.lender-review-page .review-score-card {
+  background: linear-gradient(145deg, rgba(241, 250, 245, 0.96), rgba(255, 253, 250, 0.95)) !important;
+}
+
+@media (min-width: 1024px) {
+  .lender-workspace-grid > .grid {
+    grid-template-columns: minmax(0, 1.7fr) minmax(19rem, 0.75fr);
+  }
+}
+
+@media (max-width: 800px) {
+  .lender-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .borrower-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-stat {
+    min-height: 5.6rem;
+  }
+
+  .dashboard-section-heading {
+    align-items: start;
+    flex-direction: column;
+    gap: 0.25rem;
   }
 }
 

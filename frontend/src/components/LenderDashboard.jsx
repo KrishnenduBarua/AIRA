@@ -36,6 +36,7 @@ export default function LenderDashboard({ session, onLogout }) {
   const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
   const [chatError, setChatError] = useState("");
   const [chatGrounding, setChatGrounding] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
 
   const resetDetail = useCallback(() => {
     setSelectedRequest(null);
@@ -47,6 +48,7 @@ export default function LenderDashboard({ session, onLogout }) {
     setChatMessages([]);
     setChatError("");
     setChatGrounding("");
+    setChatOpen(false);
     setDecisionDraft(null);
     setDecisionReason("");
     setDecisionError("");
@@ -95,6 +97,14 @@ export default function LenderDashboard({ session, onLogout }) {
 
   const pendingCount = useMemo(
     () => loanRequests.filter((item) => item.status === "pending").length,
+    [loanRequests],
+  );
+  const acceptedCount = useMemo(
+    () => loanRequests.filter((item) => item.status === "accepted").length,
+    [loanRequests],
+  );
+  const declinedCount = useMemo(
+    () => loanRequests.filter((item) => item.status === "declined").length,
     [loanRequests],
   );
 
@@ -245,6 +255,8 @@ export default function LenderDashboard({ session, onLogout }) {
       totalRequests={loanRequests.length}
       requestsState={requestsState}
       pendingCount={pendingCount}
+      acceptedCount={acceptedCount}
+      declinedCount={declinedCount}
       requestError={requestError}
       onRefreshRequests={() => loadLoanRequests("refresh")}
       onOpenRequest={openRequest}
@@ -275,6 +287,9 @@ export default function LenderDashboard({ session, onLogout }) {
       decisionError={decisionError}
       deciding={deciding}
       onSubmitDecision={submitDecision}
+      chatOpen={chatOpen}
+      onOpenChat={() => setChatOpen(true)}
+      onCloseChat={() => setChatOpen(false)}
       question={chatQuestion}
       messages={chatMessages}
       chatError={chatError}
