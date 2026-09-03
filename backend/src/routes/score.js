@@ -5,7 +5,12 @@ const {
   getUserById,
   saveScore,
   getLatestScoreByUser,
+  getStatementsByUser,
 } = require("../data/db");
+const {
+  buildCategorySummaries,
+  historyAdequacy,
+} = require("../services/insights");
 const { requireAuth } = require("../middlewares/validation");
 const { mlServiceUrl } = require("../config");
 const { anchorScore } = require("../services/blockchain");
@@ -40,18 +45,47 @@ function validateFeaturePayload(features = {}) {
   return { valid: true };
 }
 
+// Borrowers see a trust tier and plain-language category summaries. The raw
+// score, risk label, and SHAP factors are deliberately withheld here — those
+// belong to the lender view (/lender/score/:userId) only.
+const TIER_LEVELS = {
+  Bronze: 1,
+  Silver: 2,
+  "Platinum/Gold": 3,
+};
+
+function borrowerTier(record) {
+  const tier = record?.tier || null;
+  return {
+    tier,
+    tierLevel: TIER_LEVELS[tier] || 1,
+    tierSteps: 3,
+  };
+}
+
 router.get("/me", requireAuth, async (req, res) => {
   try {
-    const latestScore = await getLatestScoreByUser(req.user.id);
+    const [latestScore, statementRows] = await Promise.all([
+      getLatestScoreByUser(req.user.id),
+      getStatementsByUser(req.user.id).catch(() => []),
+    ]);
+
+    const features =
+      statementRows
+        .map((row) => row.extracted_features ?? row.extractedFeatures)
+        .find((item) => item && Object.keys(item).length) || {};
+    const hasStatement = Boolean(statementRows.length);
 
     if (!latestScore) {
       return res.json({
         userId: req.user.id,
         hasScore: false,
-        score: null,
+        hasStatement,
         tier: null,
-        factors: {},
-        riskLevel: null,
+        tierLevel: 0,
+        tierSteps: 3,
+        categories: hasStatement ? buildCategorySummaries(features) : [],
+        history: historyAdequacy(features),
         createdAt: null,
       });
     }
@@ -59,10 +93,10 @@ router.get("/me", requireAuth, async (req, res) => {
     return res.json({
       userId: req.user.id,
       hasScore: true,
-      score: latestScore.raw_score ?? latestScore.score,
-      tier: latestScore.tier,
-      factors: latestScore.factors,
-      riskLevel: latestScore.risk_label ?? latestScore.riskLevel,
+      hasStatement,
+      ...borrowerTier(latestScore),
+      categories: buildCategorySummaries(features),
+      history: historyAdequacy(features),
       createdAt: latestScore.created_at ?? latestScore.createdAt,
     });
   } catch (error) {
@@ -132,18 +166,20 @@ router.post("/compute", requireAuth, async (req, res) => {
       timestamp: scoreRecord.createdAt,
     });
 
+    // Borrower-facing response: tier and behavioural categories only. The raw
+    // score, risk label, and SHAP factors stay server-side and are released
+    // to lenders through /lender/score/:userId and the loan-request detail.
     return res.json({
       message: "Score computed successfully.",
       userId,
-      score: payload.score,
-      rawClassIndex: payload.rawClassIndex,
-      scoreScale: payload.scoreScale,
-      scoreInterpretation: payload.scoreInterpretation,
-      tier: payload.tier,
-      factors: payload.factors,
-      riskLevel: payload.riskLevel,
+      hasScore: true,
+      hasStatement: true,
+      ...borrowerTier(scoreRecord),
+      categories: buildCategorySummaries(features),
+      history: historyAdequacy(features),
       limitations: payload.limitations,
       blockchain: anchor,
+      createdAt: scoreRecord.createdAt,
     });
   } catch (error) {
     console.error("Compute score error:", error.message);

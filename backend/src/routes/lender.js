@@ -7,6 +7,7 @@ const {
 } = require("../data/db");
 const { requireAuth } = require("../middlewares/validation");
 const { normalizePhone } = require("../services/otp");
+const { describeFactors } = require("../services/insights");
 
 const router = express.Router();
 
@@ -39,6 +40,9 @@ router.get("/score/:userId", requireAuth, async (req, res) => {
     score: latestScore.raw_score ?? latestScore.score,
     tier: latestScore.tier,
     factors: latestScore.factors,
+    // Plain-language, ordered version of the same factors, so the lender UI
+    // does not have to interpret raw feature column names.
+    describedFactors: describeFactors(latestScore.factors),
     riskLevel: latestScore.risk_label ?? latestScore.riskLevel,
     createdAt: latestScore.created_at ?? latestScore.createdAt,
   });
