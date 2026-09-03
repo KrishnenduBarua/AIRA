@@ -14,10 +14,14 @@ const {
   getStatementById,
 } = require("../data/db");
 const { requireAuth } = require("../middlewares/validation");
+const { buildLenderInsights } = require("../services/insights");
 
 const router = express.Router();
 
 const DECISIONS = ["accepted", "declined"];
+// A written reason keeps every decision attributable to the human reviewer.
+const MIN_DECISION_REASON_LENGTH = 10;
+const MAX_DECISION_REASON_LENGTH = 1000;
 
 async function requireRole(req, res, role) {
   const user = await getUserById(req.user.id);
@@ -195,6 +199,14 @@ router.get("/requests/:requestId", requireAuth, async (req, res) => {
       getStatementsByUser(borrower.id),
     ]);
 
+    // The most recent statement carries the behavioural features behind the
+    // score; it drives the anomaly, seasonality, and thin-file signals.
+    const latestFeatures =
+      statementRows
+        .map(normalizeStatement)
+        .find((item) => item.extractedFeatures)?.extractedFeatures || {};
+    const score = normalizeScore(scoreRecord);
+
     return res.json({
       request,
       borrower: {
@@ -208,7 +220,11 @@ router.get("/requests/:requestId", requireAuth, async (req, res) => {
         consentGiven: borrower.consentGiven,
         joinedAt: borrower.createdAt,
       },
-      score: normalizeScore(scoreRecord),
+      score,
+      insights: buildLenderInsights({
+        features: latestFeatures,
+        factors: score?.factors || {},
+      }),
       statements: statementRows.map(normalizeStatement),
     });
   } catch (error) {
@@ -276,12 +292,31 @@ router.post("/requests/:requestId/decision", requireAuth, async (req, res) => {
         .json({ message: `status must be one of: ${DECISIONS.join(", ")}.` });
     }
 
+    const reason =
+      typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    if (reason.length < MIN_DECISION_REASON_LENGTH) {
+      return res.status(400).json({
+        message: "A written reason is required for every lending decision.",
+        details: `Please describe your reasoning in at least ${MIN_DECISION_REASON_LENGTH} characters. AIRA never decides on your behalf.`,
+      });
+    }
+
     const request = await getLoanRequestById(req.params.requestId);
     if (!request || request.lenderId !== lender.id) {
       return res.status(404).json({ message: "Loan request not found." });
     }
 
-    const updated = await updateLoanRequestStatus(request.id, status);
+    if (request.status !== "pending") {
+      return res.status(409).json({
+        message: `This request was already ${request.status}.`,
+      });
+    }
+
+    const updated = await updateLoanRequestStatus(
+      request.id,
+      status,
+      reason.slice(0, MAX_DECISION_REASON_LENGTH),
+    );
     return res.json({ message: `Loan request ${status}.`, request: updated });
   } catch (error) {
     return res.status(500).json({

@@ -29,10 +29,12 @@ const lenderPrompt = ChatPromptTemplate.fromMessages([
 const borrowerPrompt = ChatPromptTemplate.fromMessages([
   [
     "system",
-    "You are AIRA Borrower Coach. Reply only in Bangla. Use only the supplied score, risk level, tier, and SHAP factors. Give high-level, practical, non-exploitable improvement tips. Never reveal model weights, thresholds, formulas, hidden features, security details, or advice to manipulate transactions. Do not promise approval. Continue the conversation naturally using previous messages when relevant.\n\nScore context:\n{context}\n\nPrevious conversation:\n{history}",
+    "You are AIRA Borrower Coach. Reply in {language}. Use only the supplied score, risk level, tier, and SHAP factors. Give high-level, practical, non-exploitable improvement tips in simple everyday wording a reader with limited financial literacy can follow. Never reveal the numeric score, risk label, model weights, thresholds, formulas, hidden features, security details, or advice to manipulate transactions. Do not promise approval. Continue the conversation naturally using previous messages when relevant.\n\nScore context:\n{context}\n\nPrevious conversation:\n{history}",
   ],
   ["human", "Borrower question: {question}"],
 ]);
+
+const LANGUAGE_NAMES = { bn: "Bangla", en: "English" };
 
 function sanitizeFactors(factors = {}) {
   if (!factors || typeof factors !== "object") return {};
@@ -84,7 +86,16 @@ function sanitizeHistory(history = []) {
     .filter((message) => message.content);
 }
 
-function fallbackReply(mode, context) {
+// Borrower fallbacks stay generic on purpose: naming a SHAP feature would leak
+// model internals into the borrower-facing surface.
+const BORROWER_FALLBACK = {
+  Bangla:
+    "এই মুহূর্তে বিস্তারিত ব্যাখ্যা তৈরি করা যাচ্ছে না। সাধারণ পরামর্শ: নিয়মিত আয়-ব্যয়ের রেকর্ড রাখুন, সময়মতো বিল পরিশোধ করুন, এবং প্রতি মাসে অল্প হলেও সঞ্চয় করার অভ্যাস রাখুন।",
+  English:
+    "A detailed explanation is not available right now. General guidance: keep a steady record of money coming in and going out, pay your bills on time, and try to save a little every month. The longer your transaction history, the stronger your profile becomes.",
+};
+
+function fallbackReply(mode, context, language = "Bangla") {
   const parsed = safeParseContext(context);
   const factors =
     parsed.shapFactors && typeof parsed.shapFactors === "object"
@@ -95,9 +106,7 @@ function fallbackReply(mode, context) {
   )[0];
 
   if (mode === "borrower") {
-    return strongest
-      ? `আপনার স্কোরের প্রদত্ত কারণগুলোর মধ্যে ${strongest[0]} তুলনামূলকভাবে ভালো দেখা যাচ্ছে। নিয়মিত আয়-ব্যয়ের রেকর্ড রাখুন, সময়মতো বিল পরিশোধ করুন এবং স্থিতিশীল সঞ্চয়ের অভ্যাস বজায় রাখুন।`
-      : "নিয়মিত আয়-ব্যয়ের রেকর্ড রাখুন, সময়মতো বিল পরিশোধ করুন এবং স্থিতিশীল সঞ্চয়ের অভ্যাস বজায় রাখুন।";
+    return BORROWER_FALLBACK[language] || BORROWER_FALLBACK.Bangla;
   }
 
   return strongest
@@ -105,8 +114,20 @@ function fallbackReply(mode, context) {
     : "No usable SHAP factors were supplied, so a reliable explanation is not available. Use the score only as decision-support context.";
 }
 
+// Tells the UI what the answer actually rests on, so a borrower or lender can
+// see whether they are reading evidence or generic guidance.
+function groundingSource(input) {
+  const factors = sanitizeFactors(input?.factors);
+  if (Object.keys(factors).length) return "score_factors";
+  if (Number.isFinite(Number(input?.score)) || input?.tier)
+    return "applicant_records";
+  return "general_guidance";
+}
+
 async function answerQuestion(mode, input) {
   const context = buildContext(input);
+  const language = LANGUAGE_NAMES[input?.language] || LANGUAGE_NAMES.bn;
+  const grounding = groundingSource(input);
   const history = JSON.stringify(sanitizeHistory(input?.history));
   const question =
     typeof input?.question === "string" ? input.question.trim() : "";
@@ -114,8 +135,9 @@ async function answerQuestion(mode, input) {
 
   if (!llmApiKey) {
     return {
-      answer: fallbackReply(mode, context),
+      answer: fallbackReply(mode, context, language),
       provider: "local-fallback",
+      grounding,
       groundedContext: safeParseContext(context),
     };
   }
@@ -138,6 +160,7 @@ async function answerQuestion(mode, input) {
       context,
       history,
       question,
+      ...(mode === "borrower" ? { language } : {}),
     });
     const answer =
       typeof response?.content === "string"
@@ -154,15 +177,17 @@ async function answerQuestion(mode, input) {
           : String(response?.content ?? "");
 
     return {
-      answer: answer || fallbackReply(mode, context),
+      answer: answer || fallbackReply(mode, context, language),
       provider: "openai",
+      grounding,
       groundedContext: safeParseContext(context),
       model: llmModel,
     };
   } catch (error) {
     return {
-      answer: fallbackReply(mode, context),
+      answer: fallbackReply(mode, context, language),
       provider: "openai-fallback",
+      grounding,
       groundedContext: safeParseContext(context),
       model: llmModel,
       warning: error.message,

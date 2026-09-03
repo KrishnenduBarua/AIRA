@@ -69,8 +69,10 @@ async function handleChat(mode, req, res) {
     if (!context)
       return res.status(403).json({ message: "You cannot access this chat." });
 
+    const language = body.language === "en" ? "en" : "bn";
     const result = await answerQuestion(mode, {
       question,
+      language,
       ...scoreInput(context.score),
       history: context.messages,
     });
@@ -103,6 +105,7 @@ async function handleHistory(mode, req, res) {
       return res.status(403).json({ message: "You cannot access this chat." });
     return res.json({
       conversationId: context.conversation.id,
+      hasScore: Boolean(context.score),
       messages: context.messages,
     });
   } catch (error) {

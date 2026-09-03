@@ -84,9 +84,14 @@ CREATE TABLE IF NOT EXISTS loan_requests (
   borrower_id TEXT NOT NULL REFERENCES users(id),
   lender_id TEXT NOT NULL REFERENCES users(id),
   status TEXT NOT NULL DEFAULT 'pending',
+  decision_reason TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   reviewed_at TIMESTAMP
 );
+
+-- Human oversight: every accept/decline carries the reviewing lender's
+-- written reason, so a decision is always attributable to a person.
+ALTER TABLE loan_requests ADD COLUMN IF NOT EXISTS decision_reason TEXT;
 
 -- A borrower may hold only one open request per lender, but may re-apply
 -- after that lender has accepted or declined the previous one.

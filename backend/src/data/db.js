@@ -60,6 +60,7 @@ function mapLoanRequestRow(row) {
     lenderId: row.lenderId ?? row.lender_id,
     createdAt: row.createdAt ?? row.created_at,
     reviewedAt: row.reviewedAt ?? row.reviewed_at,
+    decisionReason: row.decisionReason ?? row.decision_reason ?? null,
   };
 }
 
@@ -807,12 +808,17 @@ async function getLoanRequestsByLender(lenderId) {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
-async function updateLoanRequestStatus(requestId, status) {
+async function updateLoanRequestStatus(
+  requestId,
+  status,
+  decisionReason = null,
+) {
   if (pool) {
     const result = await pool.query(
-      `UPDATE loan_requests SET status = $1, reviewed_at = NOW()
-       WHERE id = $2 RETURNING *`,
-      [status, requestId],
+      `UPDATE loan_requests
+       SET status = $1, decision_reason = $2, reviewed_at = NOW()
+       WHERE id = $3 RETURNING *`,
+      [status, decisionReason, requestId],
     );
     return mapLoanRequestRow(result.rows[0]);
   }
@@ -823,6 +829,7 @@ async function updateLoanRequestStatus(requestId, status) {
   loanRequests[index] = {
     ...loanRequests[index],
     status,
+    decisionReason,
     reviewedAt: new Date().toISOString(),
   };
   return loanRequests[index];
