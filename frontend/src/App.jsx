@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import AuthFlow from "./components/AuthFlow";
+import LandingPage from "./components/LandingPage";
 import { request } from "./api";
 import { LANGUAGES, LanguageProvider, useLanguage } from "./i18n";
 import { Alert, Button, Card, Skeleton, cx } from "./ui/primitives";
@@ -55,6 +56,8 @@ function DashboardFallback() {
 
 function Shell() {
   const { t } = useLanguage();
+  const isLandingPage =
+    window.location.pathname === "/" || window.location.pathname === "/landing";
   const isAdminUrl = window.location.pathname.startsWith("/admin");
   const [portalRole, setPortalRole] = useState(() =>
     isAdminUrl ? "admin" : localStorage.getItem("aira_portal_role") || "borrower",
@@ -99,8 +102,10 @@ function Shell() {
 
   const dashboardProps = { session, onLogout: logout };
 
+  if (isLandingPage) return <LandingPage />;
+
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
+    <div className="aira-app-shell min-h-screen bg-slate-100 text-slate-900">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-brand-700 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
@@ -109,14 +114,23 @@ function Shell() {
       </a>
 
       <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-4 sm:py-6 lg:px-8">
-        <header className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-soft sm:mb-6 sm:p-4 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-brand-700">
-              {t("app.name")}
-            </p>
-            <h1 className="mt-1 text-lg font-bold text-slate-900 sm:text-xl">
-              {t("app.tagline")}
-            </h1>
+        <header className="aira-header mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-soft sm:mb-6 sm:p-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <img
+              src="/favicon.ico"
+              alt=""
+              width="44"
+              height="44"
+              className="aira-brand-mark h-11 w-11 shrink-0 rounded-full object-cover"
+            />
+            <div className="min-w-0">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-brand-700">
+                {t("app.name")}
+              </p>
+              <h1 className="mt-1 text-lg font-bold text-slate-900 sm:text-xl">
+                {t("app.tagline")}
+              </h1>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
