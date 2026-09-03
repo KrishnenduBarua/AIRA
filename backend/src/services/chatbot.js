@@ -21,7 +21,7 @@ const FACTOR_KEYS = [
 const lenderPrompt = ChatPromptTemplate.fromMessages([
   [
     "system",
-    "You are AIRA Lender Coach. Answer only from the supplied score, risk level, tier, and SHAP factors. Never infer, invent, or discuss raw model weights, hidden features, protected attributes, or information not supplied. Explain uncertainty clearly. Do not recommend automatic approval or rejection; provide decision support only.\n\nScore context:\n{context}",
+    "You are AIRA Lender Coach. Answer only from the supplied score, risk level, tier, and SHAP factors. Never infer, invent, or discuss raw model weights, hidden features, protected attributes, or information not supplied. Explain uncertainty clearly. Do not recommend automatic approval or rejection; provide decision support only. Continue the conversation naturally using previous messages when relevant.\n\nScore context:\n{context}\n\nPrevious conversation:\n{history}",
   ],
   ["human", "Lender question: {question}"],
 ]);
@@ -29,7 +29,7 @@ const lenderPrompt = ChatPromptTemplate.fromMessages([
 const borrowerPrompt = ChatPromptTemplate.fromMessages([
   [
     "system",
-    "You are AIRA Borrower Coach. Reply only in Bangla. Use only the supplied score, risk level, tier, and SHAP factors. Give high-level, practical, non-exploitable improvement tips. Never reveal model weights, thresholds, formulas, hidden features, security details, or advice to manipulate transactions. Do not promise approval.\n\nScore context:\n{context}",
+    "You are AIRA Borrower Coach. Reply only in Bangla. Use only the supplied score, risk level, tier, and SHAP factors. Give high-level, practical, non-exploitable improvement tips. Never reveal model weights, thresholds, formulas, hidden features, security details, or advice to manipulate transactions. Do not promise approval. Continue the conversation naturally using previous messages when relevant.\n\nScore context:\n{context}\n\nPrevious conversation:\n{history}",
   ],
   ["human", "Borrower question: {question}"],
 ]);
@@ -66,6 +66,24 @@ function safeParseContext(context) {
   }
 }
 
+function sanitizeHistory(history = []) {
+  if (!Array.isArray(history)) return [];
+
+  return history
+    .filter(
+      (message) =>
+        message &&
+        ["user", "assistant"].includes(message.role) &&
+        typeof message.content === "string",
+    )
+    .slice(-20)
+    .map((message) => ({
+      role: message.role,
+      content: message.content.trim().slice(0, 4000),
+    }))
+    .filter((message) => message.content);
+}
+
 function fallbackReply(mode, context) {
   const parsed = safeParseContext(context);
   const factors =
@@ -89,6 +107,7 @@ function fallbackReply(mode, context) {
 
 async function answerQuestion(mode, input) {
   const context = buildContext(input);
+  const history = JSON.stringify(sanitizeHistory(input?.history));
   const question =
     typeof input?.question === "string" ? input.question.trim() : "";
   if (!question) throw new Error("question is required");
@@ -115,7 +134,11 @@ async function answerQuestion(mode, input) {
   const prompt = mode === "borrower" ? borrowerPrompt : lenderPrompt;
 
   try {
-    const response = await prompt.pipe(model).invoke({ context, question });
+    const response = await prompt.pipe(model).invoke({
+      context,
+      history,
+      question,
+    });
     const answer =
       typeof response?.content === "string"
         ? response.content

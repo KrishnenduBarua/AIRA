@@ -12,6 +12,8 @@ const scores = [];
 const consentRecords = [];
 const lenderApplications = [];
 const loanRequests = [];
+const conversations = [];
+const messages = [];
 
 function mapUserRow(row) {
   if (!row) return null;
@@ -98,6 +100,7 @@ async function initDatabase() {
     "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;",
   );
   await pool.query("ALTER TABLE users ALTER COLUMN email DROP DEFAULT;");
+  await pool.query("ALTER TABLE users ALTER COLUMN phone_number SET NOT NULL;");
   await pool.query(
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;",
   );
@@ -488,6 +491,117 @@ async function getLatestScoreByUser(userId) {
   );
 }
 
+async function getOrCreateConversation({
+  userId,
+  mode,
+  subjectUserId = null,
+  scoreId = null,
+}) {
+  if (pool) {
+    const result = await pool.query(
+      `SELECT * FROM conversations
+       WHERE user_id = $1 AND mode = $2
+         AND subject_user_id IS NOT DISTINCT FROM $3
+       LIMIT 1`,
+      [userId, mode, subjectUserId],
+    );
+    if (result.rows[0]) {
+      if (scoreId && result.rows[0].score_id !== scoreId) {
+        const updated = await pool.query(
+          "UPDATE conversations SET score_id = $1 WHERE id = $2 RETURNING *",
+          [scoreId, result.rows[0].id],
+        );
+        return updated.rows[0];
+      }
+      return result.rows[0];
+    }
+
+    const id = `conversation_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const created = await pool.query(
+      `INSERT INTO conversations (id, user_id, mode, subject_user_id, score_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [id, userId, mode, subjectUserId, scoreId],
+    );
+    return created.rows[0];
+  }
+
+  const existing = conversations.find(
+    (item) =>
+      item.userId === userId &&
+      item.mode === mode &&
+      (item.subjectUserId || null) === (subjectUserId || null),
+  );
+  if (existing) {
+    if (scoreId) existing.scoreId = scoreId;
+    return existing;
+  }
+
+  const conversation = {
+    id: `conversation_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    userId,
+    mode,
+    subjectUserId,
+    scoreId,
+    startedAt: new Date().toISOString(),
+    lastMessageAt: new Date().toISOString(),
+  };
+  conversations.push(conversation);
+  return conversation;
+}
+
+async function getConversationMessages(conversationId) {
+  if (pool) {
+    const result = await pool.query(
+      "SELECT id, role, content, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC, id ASC",
+      [conversationId],
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      role: row.role,
+      content: row.content,
+      createdAt: row.created_at,
+    }));
+  }
+
+  return messages
+    .filter((item) => item.conversationId === conversationId)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+}
+
+async function saveConversationMessage({ conversationId, role, content }) {
+  const id = `message_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  if (pool) {
+    const result = await pool.query(
+      `INSERT INTO messages (id, conversation_id, role, content)
+       VALUES ($1, $2, $3, $4) RETURNING id, role, content, created_at`,
+      [id, conversationId, role, content],
+    );
+    await pool.query(
+      "UPDATE conversations SET last_message_at = NOW() WHERE id = $1",
+      [conversationId],
+    );
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      role: row.role,
+      content: row.content,
+      createdAt: row.created_at,
+    };
+  }
+
+  const message = {
+    id,
+    conversationId,
+    role,
+    content,
+    createdAt: new Date().toISOString(),
+  };
+  messages.push(message);
+  const conversation = conversations.find((item) => item.id === conversationId);
+  if (conversation) conversation.lastMessageAt = message.createdAt;
+  return message;
+}
+
 async function getFlaggedUsers() {
   if (pool) {
     const result = await pool.query(
@@ -742,6 +856,11 @@ module.exports = {
   completeLenderApplication,
   saveScore,
   getLatestScoreByUser,
+  conversations,
+  messages,
+  getOrCreateConversation,
+  getConversationMessages,
+  saveConversationMessage,
   getFlaggedUsers,
   getStatementsByUser,
   getStatementById,

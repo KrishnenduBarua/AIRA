@@ -45,13 +45,20 @@ router.get("/me", requireAuth, async (req, res) => {
     const latestScore = await getLatestScoreByUser(req.user.id);
 
     if (!latestScore) {
-      return res
-        .status(404)
-        .json({ message: "No score record found for this user." });
+      return res.json({
+        userId: req.user.id,
+        hasScore: false,
+        score: null,
+        tier: null,
+        factors: {},
+        riskLevel: null,
+        createdAt: null,
+      });
     }
 
     return res.json({
       userId: req.user.id,
+      hasScore: true,
       score: latestScore.raw_score ?? latestScore.score,
       tier: latestScore.tier,
       factors: latestScore.factors,

@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT NULL,
-  phone_number TEXT UNIQUE,
+  phone_number TEXT NOT NULL UNIQUE,
   password_hash TEXT NULL DEFAULT NULL,
   role TEXT NOT NULL DEFAULT 'borrower',
   consent_given BOOLEAN NOT NULL DEFAULT FALSE,
@@ -28,6 +28,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_front_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_back_url TEXT;
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+ALTER TABLE users ALTER COLUMN phone_number SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_phone_number_unique ON users (phone_number) WHERE phone_number IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_nid_number_unique ON users (nid_number) WHERE nid_number IS NOT NULL;
 
@@ -91,3 +92,27 @@ CREATE TABLE IF NOT EXISTS loan_requests (
 -- after that lender has accepted or declined the previous one.
 CREATE UNIQUE INDEX IF NOT EXISTS loan_requests_open_unique
   ON loan_requests (borrower_id, lender_id) WHERE status = 'pending';
+
+CREATE TABLE IF NOT EXISTS conversations (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  mode TEXT NOT NULL CHECK (mode IN ('borrower', 'lender')),
+  subject_user_id TEXT REFERENCES users(id),
+  score_id TEXT REFERENCES scores(id),
+  started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  last_message_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS conversations_scope_unique
+  ON conversations (user_id, mode, COALESCE(subject_user_id, ''));
+CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_subject ON conversations(subject_user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);

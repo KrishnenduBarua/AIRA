@@ -1,16 +1,20 @@
 const express = require("express");
 const {
   getUserById,
+  getUserByPhone,
   getLatestScoreByUser,
   getFlaggedUsers,
 } = require("../data/db");
 const { requireAuth } = require("../middlewares/validation");
+const { normalizePhone } = require("../services/otp");
 
 const router = express.Router();
 
 router.get("/score/:userId", requireAuth, async (req, res) => {
   const { userId } = req.params;
-  const user = await getUserById(userId);
+  const user =
+    (await getUserById(userId)) ||
+    (await getUserByPhone(normalizePhone(userId)));
 
   if (!user) {
     return res.status(404).json({ message: "User not found." });
@@ -22,7 +26,7 @@ router.get("/score/:userId", requireAuth, async (req, res) => {
       .json({ message: "Consent is required before sharing a lender score." });
   }
 
-  const latestScore = await getLatestScoreByUser(userId);
+  const latestScore = await getLatestScoreByUser(user.id);
 
   if (!latestScore) {
     return res
@@ -31,7 +35,7 @@ router.get("/score/:userId", requireAuth, async (req, res) => {
   }
 
   return res.json({
-    userId,
+    userId: user.id,
     score: latestScore.raw_score ?? latestScore.score,
     tier: latestScore.tier,
     factors: latestScore.factors,
@@ -50,12 +54,10 @@ router.get("/admin/flagged", requireAuth, async (req, res) => {
     const flaggedUsers = await getFlaggedUsers();
     return res.json({ flaggedUsers });
   } catch (error) {
-    return res
-      .status(500)
-      .json({
-        message: "Failed to load flagged users.",
-        details: error.message,
-      });
+    return res.status(500).json({
+      message: "Failed to load flagged users.",
+      details: error.message,
+    });
   }
 });
 

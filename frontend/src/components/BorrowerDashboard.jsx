@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { request } from "../api";
+import BorrowerDashboardView from "./BorrowerDashboardView";
 
 export default function BorrowerDashboard({ session, onLogout }) {
   const [consent, setConsent] = useState(Boolean(session.user.consentGiven));
@@ -13,24 +14,51 @@ export default function BorrowerDashboard({ session, onLogout }) {
   const [lendersError, setLendersError] = useState("");
   const [requestingId, setRequestingId] = useState("");
   const [chatQuestion, setChatQuestion] = useState("");
-  const [chatAnswer, setChatAnswer] = useState("");
+  const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
+  const [chatOpen, setChatOpen] = useState(
+    () => new URLSearchParams(window.location.search).get("view") === "chat",
+  );
+
+  useEffect(() => {
+    const handleHistoryChange = () => {
+      setChatOpen(
+        new URLSearchParams(window.location.search).get("view") === "chat",
+      );
+    };
+    window.addEventListener("popstate", handleHistoryChange);
+    return () => window.removeEventListener("popstate", handleHistoryChange);
+  }, []);
+
+  const openChat = () => {
+    window.history.pushState({ view: "chat" }, "", "?view=chat");
+    setChatOpen(true);
+  };
+
+  const closeChat = () => {
+    window.history.pushState({}, "", window.location.pathname);
+    setChatOpen(false);
+  };
 
   useEffect(() => {
     let active = true;
-
     request("/score/me")
       .then((data) => {
-        if (active) setScoreData(data);
+        if (active) setScoreData(data.hasScore === false ? null : data);
       })
       .catch(() => {
         if (active) setScoreData(null);
       });
-
     return () => {
       active = false;
     };
+  }, [session.user.id]);
+
+  useEffect(() => {
+    request("/chat/borrower/history")
+      .then((data) => setChatMessages(data.messages || []))
+      .catch(() => setChatMessages([]));
   }, [session.user.id]);
 
   const loadLenders = useCallback(async () => {
@@ -50,7 +78,6 @@ export default function BorrowerDashboard({ session, onLogout }) {
   const sendLoanRequest = async (lenderId) => {
     setLendersError("");
     setRequestingId(lenderId);
-
     try {
       await request("/loans/requests", {
         method: "POST",
@@ -68,7 +95,6 @@ export default function BorrowerDashboard({ session, onLogout }) {
     const nextConsent = !consent;
     setMessage("");
     setSavingConsent(true);
-
     try {
       const data = await request("/auth/consent", {
         method: "POST",
@@ -87,25 +113,20 @@ export default function BorrowerDashboard({ session, onLogout }) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-
     if (!consent) {
       setMessageIsError(true);
       setMessage("Please grant consent before uploading a statement.");
       return;
     }
-
     setMessage("");
     setUploading(true);
-
     try {
       const body = new FormData();
       body.append("statement", file);
-
       const uploaded = await request("/statements/upload", {
         method: "POST",
         body,
       });
-
       const result = await request("/score/compute", {
         method: "POST",
         body: JSON.stringify({
@@ -113,7 +134,6 @@ export default function BorrowerDashboard({ session, onLogout }) {
           features: uploaded.statement.extractedFeatures,
         }),
       });
-
       setScoreData(result);
       setMessageIsError(false);
       setMessage("Your score is ready.");
@@ -134,11 +154,12 @@ export default function BorrowerDashboard({ session, onLogout }) {
       );
       return;
     }
-
     setChatLoading(true);
     setChatError("");
-    setChatAnswer("");
-
+    const userMessage = { role: "user", content: chatQuestion.trim() };
+    const nextMessages = [...chatMessages, userMessage];
+    setChatQuestion("");
+    setChatMessages(nextMessages);
     try {
       const data = await request("/chat/borrower", {
         method: "POST",
@@ -150,7 +171,7 @@ export default function BorrowerDashboard({ session, onLogout }) {
           factors: scoreData.factors || {},
         }),
       });
-      setChatAnswer(data.answer || "No answer returned.");
+      setChatMessages(data.messages || nextMessages);
     } catch (error) {
       setChatError(error.message);
     } finally {
@@ -159,224 +180,31 @@ export default function BorrowerDashboard({ session, onLogout }) {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
-      <div className="space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-            Borrower dashboard
-          </p>
-          <h2 className="mt-3 text-3xl font-bold text-slate-900">
-            Welcome, {session.user.name}
-          </h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Your credit profile is ready for review and statement upload.
-          </p>
-
-          <div className="mt-6 rounded-xl bg-slate-50 p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-600">
-                Consent
-              </span>
-              <button
-                type="button"
-                onClick={updateConsent}
-                disabled={savingConsent}
-                className={`rounded-full px-3 py-1 text-sm font-semibold ${consent ? "bg-brand-100 text-brand-800" : "bg-slate-200 text-slate-600"}`}
-              >
-                {savingConsent
-                  ? "Saving..."
-                  : consent
-                    ? "Granted"
-                    : "Not granted"}
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">Phone</p>
-              <p className="mt-1 font-semibold text-slate-900">
-                {session.user.phone}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">Status</p>
-              <p className="mt-1 font-semibold text-slate-900">
-                {session.user.nidVerified ? "Verified" : "Pending"}
-              </p>
-            </div>
-          </div>
-
-          {scoreData && (
-            <div className="mt-6 rounded-xl border border-brand-100 bg-brand-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-                Latest score
-              </p>
-              <div className="mt-3 flex items-end gap-3">
-                <span className="text-3xl font-bold text-slate-900">
-                  {scoreData.score}
-                </span>
-                <span className="text-sm text-slate-600">
-                  {scoreData.riskLevel || "unknown risk"} ·{" "}
-                  {scoreData.tier || "unassigned tier"}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {message && (
-            <p
-              className={`mt-4 text-sm ${messageIsError ? "text-red-600" : "text-green-700"}`}
-            >
-              {message}
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-              Available lenders
-            </p>
-            <span className="text-xs text-slate-500">
-              {lenders.length} partner{lenders.length === 1 ? "" : "s"}
-            </span>
-          </div>
-          <p className="mt-2 text-sm text-slate-600">
-            Send a loan request to a partner lender. They will be able to review
-            your profile, statements, and trust score.
-          </p>
-
-          {lendersError && (
-            <p className="mt-4 text-sm text-red-600">{lendersError}</p>
-          )}
-
-          <div className="mt-4 space-y-3">
-            {lenders.length === 0 && !lendersError && (
-              <p className="text-sm text-slate-500">
-                No partner lenders are available yet.
-              </p>
-            )}
-
-            {lenders.map((lender) => (
-              <div
-                key={lender.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold uppercase text-brand-800">
-                    {String(lender.name || "?").slice(0, 2)}
-                  </span>
-                  <div>
-                    <p className="font-semibold text-slate-900">
-                      {lender.name}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {lender.requestStatus
-                        ? `Request ${lender.requestStatus}`
-                        : "Partner lending organization"}
-                    </p>
-                  </div>
-                </div>
-
-                {lender.requestStatus === "pending" ? (
-                  <span className="rounded-full bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-800">
-                    Request sent
-                  </span>
-                ) : lender.requestStatus === "accepted" ? (
-                  <span className="rounded-full bg-green-100 px-3 py-1.5 text-sm font-semibold text-green-800">
-                    Accepted
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => sendLoanRequest(lender.id)}
-                    disabled={requestingId === lender.id}
-                    className="rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {requestingId === lender.id
-                      ? "Sending..."
-                      : lender.requestStatus === "declined"
-                        ? "Request again"
-                        : "Send loan request"}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-            AI borrower coach
-          </p>
-          <form onSubmit={askCoach} className="mt-4 space-y-3">
-            <textarea
-              rows="4"
-              value={chatQuestion}
-              onChange={(event) => setChatQuestion(event.target.value)}
-              placeholder={
-                scoreData
-                  ? "Ask about your score, risk, or improvement plan..."
-                  : "Score is not available yet."
-              }
-              disabled={!scoreData || chatLoading}
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm text-slate-700 outline-none focus:border-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
-            />
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={!scoreData || chatLoading || !chatQuestion.trim()}
-                className="rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {chatLoading ? "Asking..." : "Ask coach"}
-              </button>
-            </div>
-          </form>
-
-          {chatError && (
-            <p className="mt-4 text-sm text-red-600">{chatError}</p>
-          )}
-          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-            {chatAnswer ||
-              (scoreData
-                ? "Ask the coach for guidance on your score, risk factors, and practical next steps."
-                : "Your latest score is not available yet. Compute a score before using the AI coach.")}
-          </div>
-        </div>
-      </div>
-
-      <aside className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
-          Quick actions
-        </p>
-        <div className="mt-4 space-y-3">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.csv"
-            onChange={uploadStatement}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="w-full rounded-xl bg-brand-700 px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {uploading ? "Analyzing statement..." : "Upload statement"}
-          </button>
-          <button className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 font-semibold text-slate-700">
-            View score
-          </button>
-          <button
-            onClick={onLogout}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700"
-          >
-            Logout
-          </button>
-        </div>
-      </aside>
-    </div>
+    <BorrowerDashboardView
+      chatOpen={chatOpen}
+      onOpenChat={openChat}
+      onCloseChat={closeChat}
+      session={session}
+      onLogout={onLogout}
+      consent={consent}
+      savingConsent={savingConsent}
+      onToggleConsent={updateConsent}
+      scoreData={scoreData}
+      message={message}
+      messageIsError={messageIsError}
+      lenders={lenders}
+      lendersError={lendersError}
+      requestingId={requestingId}
+      onRequestLender={sendLoanRequest}
+      uploading={uploading}
+      fileInputRef={fileInputRef}
+      onUpload={uploadStatement}
+      question={chatQuestion}
+      messages={chatMessages}
+      loading={chatLoading}
+      chatError={chatError}
+      onQuestionChange={setChatQuestion}
+      onAskCoach={askCoach}
+    />
   );
 }
