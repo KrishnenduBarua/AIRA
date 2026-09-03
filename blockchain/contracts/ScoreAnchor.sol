@@ -2,6 +2,8 @@
 pragma solidity ^0.8.20;
 
 contract ScoreAnchor {
+    address public immutable owner;
+
     struct Anchor {
         address user;
         uint256 timestamp;
@@ -18,11 +20,20 @@ contract ScoreAnchor {
         address indexed anchoredBy
     );
 
+    modifier onlyOwner() {
+        require(msg.sender == owner, "only owner can anchor");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+    }
+
     function anchorScore(
         bytes32 scoreHash,
         address user,
         uint256 timestamp
-    ) external {
+    ) external onlyOwner {
         require(scoreHash != bytes32(0), "score hash required");
         require(user != address(0), "user address required");
         require(!anchors[scoreHash].exists, "score already anchored");

@@ -3,12 +3,14 @@ const {
   getUserById,
   getUserByPhone,
   getLatestScoreByUser,
+  getLoanRequestsByLender,
   getFlaggedUsers,
   hasConsent,
 } = require("../data/db");
 const { requireAuth } = require("../middlewares/validation");
 const { normalizePhone } = require("../services/otp");
 const { describeFactors } = require("../services/insights");
+const { verifyScoreAnchor } = require("../services/blockchain");
 
 const router = express.Router();
 
@@ -46,7 +48,44 @@ router.get("/score/:userId", requireAuth, async (req, res) => {
     describedFactors: describeFactors(latestScore.factors),
     riskLevel: latestScore.risk_label ?? latestScore.riskLevel,
     createdAt: latestScore.created_at ?? latestScore.createdAt,
+    blockchain: {
+      status: latestScore.anchor_status || "not_configured",
+      scoreHash: latestScore.score_hash || null,
+      transactionHash: latestScore.transaction_hash || null,
+      explorerUrl: latestScore.transaction_hash
+        ? `https://amoy.polygonscan.com/tx/${latestScore.transaction_hash}`
+        : null,
+    },
   });
+});
+
+router.get("/score/:userId/blockchain", requireAuth, async (req, res) => {
+  const requestedUser =
+    (await getUserById(req.params.userId)) ||
+    (await getUserByPhone(normalizePhone(req.params.userId)));
+  if (!requestedUser || requestedUser.role !== "borrower") {
+    return res.status(404).json({ message: "Borrower not found." });
+  }
+
+  const lender = await getUserById(req.user.id);
+  if (!lender || lender.role !== "lender") {
+    return res.status(403).json({ message: "Lender access required." });
+  }
+  const requests = await getLoanRequestsByLender(lender.id);
+  if (!requests.some((item) => item.borrowerId === requestedUser.id)) {
+    return res
+      .status(403)
+      .json({ message: "This borrower is not your applicant." });
+  }
+
+  const score = await getLatestScoreByUser(requestedUser.id);
+  if (!score?.score_hash) {
+    return res.json({
+      status: score?.anchor_status || "not_configured",
+      scoreHash: null,
+    });
+  }
+  return res.json(await verifyScoreAnchor(score.score_hash));
 });
 
 router.get("/admin/flagged", requireAuth, async (req, res) => {

@@ -7,9 +7,13 @@ module.exports = {
   passwordSalt: process.env.PASSWORD_SALT || "aira-salt",
   databaseUrl: process.env.DATABASE_URL || null,
   useInMemoryDb: process.env.USE_IN_MEMORY_DB !== "false",
-  blockchainRpcUrl: process.env.BLOCKCHAIN_RPC_URL || null,
+  blockchainRpcUrl:
+    process.env.BLOCKCHAIN_RPC_URL || "https://rpc-amoy.polygon.technology",
   blockchainPrivateKey: process.env.BLOCKCHAIN_PRIVATE_KEY || null,
   anchorContractAddress: process.env.ANCHOR_CONTRACT_ADDRESS || null,
+  blockchainChainId: Number(process.env.BLOCKCHAIN_CHAIN_ID || 80002),
+  blockchainExplorerUrl:
+    process.env.BLOCKCHAIN_EXPLORER_URL || "https://amoy.polygonscan.com",
   llmApiKey: process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || null,
   llmBaseUrl: process.env.LLM_BASE_URL || "https://api.openai.com/v1",
   llmModel: process.env.LLM_MODEL || "gpt-5.6-luna",

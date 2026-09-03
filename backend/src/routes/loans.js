@@ -46,6 +46,16 @@ function normalizeScore(record) {
     riskLevel: record.risk_label ?? record.riskLevel,
     factors: record.factors || {},
     createdAt: record.created_at ?? record.createdAt,
+    blockchain: record.score_hash
+      ? {
+          status: record.anchor_status || "not_configured",
+          scoreHash: record.score_hash,
+          transactionHash: record.transaction_hash || null,
+          explorerUrl: record.transaction_hash
+            ? `https://amoy.polygonscan.com/tx/${record.transaction_hash}`
+            : null,
+        }
+      : null,
   };
 }
 
@@ -244,49 +254,53 @@ router.get("/requests/:requestId", requireAuth, async (req, res) => {
 
 // Lender: refer one of their applicants to the admin for a human fraud
 // review. This never changes the loan decision or labels the borrower itself.
-router.post("/requests/:requestId/fraud-review", requireAuth, async (req, res) => {
-  try {
-    const lender = await requireRole(req, res, "lender");
-    if (!lender) return;
+router.post(
+  "/requests/:requestId/fraud-review",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const lender = await requireRole(req, res, "lender");
+      if (!lender) return;
 
-    const reason =
-      typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
-    if (reason.length < MIN_FRAUD_REASON_LENGTH) {
-      return res.status(400).json({
-        message: "A fraud review reason is required.",
-        details: `Please describe the concern in at least ${MIN_FRAUD_REASON_LENGTH} characters.`,
+      const reason =
+        typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+      if (reason.length < MIN_FRAUD_REASON_LENGTH) {
+        return res.status(400).json({
+          message: "A fraud review reason is required.",
+          details: `Please describe the concern in at least ${MIN_FRAUD_REASON_LENGTH} characters.`,
+        });
+      }
+
+      const request = await getLoanRequestById(req.params.requestId);
+      if (!request || request.lenderId !== lender.id) {
+        return res.status(404).json({ message: "Loan request not found." });
+      }
+
+      const existing = await getFraudReviewByRequestId(request.id);
+      if (existing && ["pending", "reviewing"].includes(existing.status)) {
+        return res.status(409).json({
+          message: "This applicant already has an open fraud review.",
+        });
+      }
+
+      const review = await createFraudReview({
+        borrowerId: request.borrowerId,
+        lenderId: lender.id,
+        loanRequestId: request.id,
+        reason: reason.slice(0, MAX_FRAUD_REASON_LENGTH),
+      });
+      return res.status(201).json({
+        message: "Applicant referred to admin fraud review.",
+        fraudReview: review,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        message: "Failed to create the fraud review.",
+        details: error.message,
       });
     }
-
-    const request = await getLoanRequestById(req.params.requestId);
-    if (!request || request.lenderId !== lender.id) {
-      return res.status(404).json({ message: "Loan request not found." });
-    }
-
-    const existing = await getFraudReviewByRequestId(request.id);
-    if (existing && ["pending", "reviewing"].includes(existing.status)) {
-      return res.status(409).json({
-        message: "This applicant already has an open fraud review.",
-      });
-    }
-
-    const review = await createFraudReview({
-      borrowerId: request.borrowerId,
-      lenderId: lender.id,
-      loanRequestId: request.id,
-      reason: reason.slice(0, MAX_FRAUD_REASON_LENGTH),
-    });
-    return res.status(201).json({
-      message: "Applicant referred to admin fraud review.",
-      fraudReview: review,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: "Failed to create the fraud review.",
-      details: error.message,
-    });
-  }
-});
+  },
+);
 
 // Lender: open the source statement document behind a request.
 router.get(

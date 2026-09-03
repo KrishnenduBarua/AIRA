@@ -228,7 +228,12 @@ function RequestList({
               ))}
             </ul>
             {visible.length < requests.length && (
-              <Button variant="secondary" full className="mt-3" onClick={onShowMore}>
+              <Button
+                variant="secondary"
+                full
+                className="mt-3"
+                onClick={onShowMore}
+              >
                 {t("lender.loadMore")}
               </Button>
             )}
@@ -241,10 +246,21 @@ function RequestList({
 
 // The workspace navigation lives inside the shared app header, so a lender
 // never sees two stacked bars saying the same thing.
-function LenderNavbar({ activeSection, onSectionChange, pendingCount, fraudCount, onLogout }) {
+function LenderNavbar({
+  activeSection,
+  onSectionChange,
+  pendingCount,
+  fraudCount,
+  onLogout,
+}) {
   const { t } = useLanguage();
   const items = [
-    { id: "overview", label: t("lender.navOverview"), icon: "⌂", count: pendingCount },
+    {
+      id: "overview",
+      label: t("lender.navOverview"),
+      icon: "⌂",
+      count: pendingCount,
+    },
     { id: "fraud", label: t("lender.navFraud"), icon: "!", count: fraudCount },
   ];
 
@@ -256,19 +272,30 @@ function LenderNavbar({ activeSection, onSectionChange, pendingCount, fraudCount
             <button
               key={item.id}
               type="button"
-              className={cx("lender-navbar-link", activeSection === item.id && "is-active")}
+              className={cx(
+                "lender-navbar-link",
+                activeSection === item.id && "is-active",
+              )}
               aria-current={activeSection === item.id ? "page" : undefined}
               onClick={() => onSectionChange(item.id)}
             >
-              <span className="lender-navbar-icon" aria-hidden="true">{item.icon}</span>
+              <span className="lender-navbar-icon" aria-hidden="true">
+                {item.icon}
+              </span>
               <span>{item.label}</span>
-              {item.count > 0 && <span className="lender-navbar-count">{item.count}</span>}
+              {item.count > 0 && (
+                <span className="lender-navbar-count">{item.count}</span>
+              )}
             </button>
           ))}
         </nav>
       </HeaderSlot>
       <HeaderSlot id="aira-header-actions">
-        <button type="button" className="lender-navbar-logout" onClick={onLogout}>
+        <button
+          type="button"
+          className="lender-navbar-logout"
+          onClick={onLogout}
+        >
           ↗ <span>{t("common.logout")}</span>
         </button>
       </HeaderSlot>
@@ -309,18 +336,32 @@ function FraudReferralList({ requests, onOpen }) {
         description={t("lender.fraudQueueHelp")}
       />
       {requests.length === 0 ? (
-        <div className="mt-4"><EmptyState title={t("lender.noFraudReferrals")} /></div>
+        <div className="mt-4">
+          <EmptyState title={t("lender.noFraudReferrals")} />
+        </div>
       ) : (
         <ul className="mt-4 grid gap-3 md:grid-cols-2">
           {requests.map((item) => (
             <li key={item.id}>
-              <button type="button" onClick={() => onOpen(item.id)} className="lender-referral-row">
+              <button
+                type="button"
+                onClick={() => onOpen(item.id)}
+                className="lender-referral-row"
+              >
                 <span className="min-w-0">
-                  <span className="block break-words font-semibold text-slate-900">{item.borrowerName}</span>
-                  <span className="mt-1 block text-xs text-slate-600">{item.borrowerPhone}</span>
+                  <span className="block break-words font-semibold text-slate-900">
+                    {item.borrowerName}
+                  </span>
+                  <span className="mt-1 block text-xs text-slate-600">
+                    {item.borrowerPhone}
+                  </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
-                  <Badge tone={FRAUD_REVIEW_TONES[item.fraudReview?.status] || "neutral"}>
+                  <Badge
+                    tone={
+                      FRAUD_REVIEW_TONES[item.fraudReview?.status] || "neutral"
+                    }
+                  >
                     {item.fraudReview
                       ? t(`lender.fraudStatus.${item.fraudReview.status}`)
                       : t("lender.notReferred")}
@@ -348,9 +389,7 @@ function ScoreDetail({ score, insights }) {
   const [allFactors, setAllFactors] = useState(false);
 
   if (!score) {
-    return (
-      <EmptyState icon="—" title={t("lender.noScore")} />
-    );
+    return <EmptyState icon="—" title={t("lender.noScore")} />;
   }
 
   const factors = insights?.factors || score.describedFactors || [];
@@ -365,7 +404,8 @@ function ScoreDetail({ score, insights }) {
           </span>
           <div className="flex flex-wrap gap-2">
             <Badge tone="neutral">
-              {t("lender.riskLevel")}: {String(score.riskLevel || "—").replace(/_/g, " ")}
+              {t("lender.riskLevel")}:{" "}
+              {String(score.riskLevel || "—").replace(/_/g, " ")}
             </Badge>
             <Badge tone="brand">
               {t("lender.tier")}: {score.tier || "—"}
@@ -465,57 +505,57 @@ function InsightsCard({ insights }) {
         }
       />
       <div id="lender-insights-body" hidden={!open}>
-      <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-        <Badge tone={SEASONALITY_TONES[seasonality.pattern] || "neutral"}>
-          {seasonality.pattern}
-        </Badge>
-        <p className="mt-2 text-sm leading-6 text-slate-700">
-          {seasonality.summary}
-        </p>
-      </div>
-
-      <div className="mt-5">
-        <p className="text-sm font-semibold text-slate-900">
-          {t("lender.history")}
-        </p>
-        <div className="mt-2">
-          <ProgressBar
-            value={history.progress}
-            tone={history.sufficientForSixMonths ? "brand" : "warning"}
-            label={`${history.monthsOfHistory}/${history.targetMonths} months · ${history.transactionCount} transactions`}
-          />
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <Badge tone={SEASONALITY_TONES[seasonality.pattern] || "neutral"}>
+            {seasonality.pattern}
+          </Badge>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            {seasonality.summary}
+          </p>
         </div>
-      </div>
 
-      <div className="mt-5">
-        <p className="text-sm font-semibold text-slate-900">
-          {t("lender.anomalies")}
-        </p>
-        <p className="mt-1 text-xs leading-5 text-slate-600">
-          {t("lender.anomaliesHelp")}
-        </p>
-        {anomalies.length === 0 ? (
-          <Alert variant="success" className="mt-3">
-            {t("lender.noAnomalies")}
-          </Alert>
-        ) : (
-          <ul className="mt-3 space-y-2">
-            {anomalies.map((anomaly) => (
-              <li
-                key={anomaly.code}
-                className="min-w-0 rounded-xl border border-slate-200 bg-white p-3"
-              >
-                <Badge tone={SEVERITY_TONES[anomaly.severity]}>
-                  {t(`lender.severity.${anomaly.severity}`)}
-                </Badge>
-                <p className="mt-2 text-sm leading-6 text-slate-700">
-                  {anomaly.summary}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+        <div className="mt-5">
+          <p className="text-sm font-semibold text-slate-900">
+            {t("lender.history")}
+          </p>
+          <div className="mt-2">
+            <ProgressBar
+              value={history.progress}
+              tone={history.sufficientForSixMonths ? "brand" : "warning"}
+              label={`${history.monthsOfHistory}/${history.targetMonths} months · ${history.transactionCount} transactions`}
+            />
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-sm font-semibold text-slate-900">
+            {t("lender.anomalies")}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            {t("lender.anomaliesHelp")}
+          </p>
+          {anomalies.length === 0 ? (
+            <Alert variant="success" className="mt-3">
+              {t("lender.noAnomalies")}
+            </Alert>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {anomalies.map((anomaly) => (
+                <li
+                  key={anomaly.code}
+                  className="min-w-0 rounded-xl border border-slate-200 bg-white p-3"
+                >
+                  <Badge tone={SEVERITY_TONES[anomaly.severity]}>
+                    {t(`lender.severity.${anomaly.severity}`)}
+                  </Badge>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">
+                    {anomaly.summary}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </Card>
   );
@@ -537,43 +577,90 @@ function Statements({ detail }) {
         }
       />
       <div id="lender-statements-body" hidden={!open}>
-      {detail.statements.length === 0 ? (
-        <div className="mt-3">
-          <EmptyState title={t("lender.noStatements")} />
-        </div>
-      ) : (
-        <ul className="mt-3 space-y-2">
-          {detail.statements.map((statement) => (
-            <li
-              key={statement.id}
-              className="flex min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0">
-                <p className="break-all text-sm font-semibold text-slate-900">
-                  {statement.filename}
-                </p>
-                <Badge
-                  tone={statement.verified ? "success" : "warning"}
-                  className="mt-1.5"
-                >
-                  {statement.verified
-                    ? t("common.verified")
-                    : t("common.pending")}
-                </Badge>
-              </div>
-              <a
-                href={`${API_URL}/loans/requests/${detail.request.id}/statements/${statement.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 transition hover:border-brand-400 hover:bg-brand-50"
+        {detail.statements.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState title={t("lender.noStatements")} />
+          </div>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {detail.statements.map((statement) => (
+              <li
+                key={statement.id}
+                className="flex min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
               >
-                {t("lender.viewStatement")}
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
+                <div className="min-w-0">
+                  <p className="break-all text-sm font-semibold text-slate-900">
+                    {statement.filename}
+                  </p>
+                  <Badge
+                    tone={statement.verified ? "success" : "warning"}
+                    className="mt-1.5"
+                  >
+                    {statement.verified
+                      ? t("common.verified")
+                      : t("common.pending")}
+                  </Badge>
+                </div>
+                <a
+                  href={`${API_URL}/loans/requests/${detail.request.id}/statements/${statement.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 transition hover:border-brand-400 hover:bg-brand-50"
+                >
+                  {t("lender.viewStatement")}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
+    </Card>
+  );
+}
+
+function BlockchainVerification({ detail, state, error, onVerify }) {
+  const anchor = detail.score?.blockchain;
+
+  return (
+    <Card>
+      <CardHeader
+        eyebrow="Blockchain verification"
+        description="Confirm that this score hash is recorded on Polygon Amoy."
+      />
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Badge tone={anchor?.status === "confirmed" ? "success" : "neutral"}>
+          {state === "loading"
+            ? "Checking..."
+            : anchor?.status || "Not anchored"}
+        </Badge>
+        <Button
+          variant="secondary"
+          onClick={onVerify}
+          disabled={state === "loading" || !anchor?.scoreHash}
+        >
+          {state === "loading" ? "Checking..." : "Verify on blockchain"}
+        </Button>
+        {anchor?.explorerUrl && (
+          <a
+            href={anchor.explorerUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm font-semibold text-brand-700 hover:underline"
+          >
+            View on PolygonScan
+          </a>
+        )}
+      </div>
+      {anchor?.scoreHash && (
+        <p className="mt-3 break-all text-xs text-slate-500">
+          Score hash: {anchor.scoreHash}
+        </p>
+      )}
+      {error && (
+        <Alert variant="error" className="mt-3">
+          {error}
+        </Alert>
+      )}
     </Card>
   );
 }
@@ -710,7 +797,9 @@ function FraudReviewCard({
         >
           <p>{review.reason}</p>
           {review.adminNotes && (
-            <p className="mt-2 text-xs">{t("lender.adminNote")}: {review.adminNotes}</p>
+            <p className="mt-2 text-xs">
+              {t("lender.adminNote")}: {review.adminNotes}
+            </p>
           )}
         </Alert>
       </Card>
@@ -794,6 +883,9 @@ function ReviewScreen({
   chatOpen,
   onOpenChat,
   onCloseChat,
+  blockchainState,
+  blockchainError,
+  onVerifyBlockchain,
 }) {
   const { t } = useLanguage();
 
@@ -843,7 +935,10 @@ function ReviewScreen({
                   <div className="mt-4">
                     <DefinitionGrid
                       items={[
-                        { label: t("common.phone"), value: detail.borrower.phone },
+                        {
+                          label: t("common.phone"),
+                          value: detail.borrower.phone,
+                        },
                         {
                           label: t("auth.nidNumber"),
                           value: detail.borrower.nidNumber,
@@ -868,19 +963,25 @@ function ReviewScreen({
                 </Card>
 
                 <Card className="review-score-card">
-                <CardHeader eyebrow={t("lender.trustScore")} />
-                <Alert variant="warning" className="mt-3">
-                  {t("lender.aiLabel")}
-                </Alert>
-                <div className="mt-4">
-                  <ScoreDetail
-                    score={detail.score}
-                    insights={detail.insights}
-                  />
-                </div>
-              </Card>
+                  <CardHeader eyebrow={t("lender.trustScore")} />
+                  <Alert variant="warning" className="mt-3">
+                    {t("lender.aiLabel")}
+                  </Alert>
+                  <div className="mt-4">
+                    <ScoreDetail
+                      score={detail.score}
+                      insights={detail.insights}
+                    />
+                  </div>
+                </Card>
 
-              <InsightsCard insights={detail.insights} />
+                <InsightsCard insights={detail.insights} />
+                <BlockchainVerification
+                  detail={detail}
+                  state={blockchainState}
+                  error={blockchainError}
+                  onVerify={onVerifyBlockchain}
+                />
               </>
             }
             aside={
@@ -934,13 +1035,19 @@ function FraudReviewScreen({
         <Alert
           variant="error"
           title={t("errors.loadProfile")}
-          action={<Button variant="secondary" onClick={onRetryDetail}>{t("common.retry")}</Button>}
+          action={
+            <Button variant="secondary" onClick={onRetryDetail}>
+              {t("common.retry")}
+            </Button>
+          }
         >
           {detailError}
         </Alert>
       )}
       {detailLoading ? (
-        <Card><Skeleton className="h-40 w-full" /></Card>
+        <Card>
+          <Skeleton className="h-40 w-full" />
+        </Card>
       ) : detail ? (
         <>
           <Card className="review-profile-card">
@@ -948,14 +1055,26 @@ function FraudReviewScreen({
               eyebrow={t("lender.fraudReview")}
               title={detail.borrower.name}
               description={t("lender.fraudPageHelp")}
-              actions={<Badge tone={STATUS_TONES[detail.request.status]}>{statusLabel(t, detail.request.status)}</Badge>}
+              actions={
+                <Badge tone={STATUS_TONES[detail.request.status]}>
+                  {statusLabel(t, detail.request.status)}
+                </Badge>
+              }
             />
             <div className="mt-4">
               <DefinitionGrid
                 items={[
                   { label: t("common.phone"), value: detail.borrower.phone },
-                  { label: t("auth.nidNumber"), value: detail.borrower.nidNumber },
-                  { label: t("auth.steps.identity"), value: detail.borrower.nidVerified ? t("common.verified") : t("common.pending") },
+                  {
+                    label: t("auth.nidNumber"),
+                    value: detail.borrower.nidNumber,
+                  },
+                  {
+                    label: t("auth.steps.identity"),
+                    value: detail.borrower.nidVerified
+                      ? t("common.verified")
+                      : t("common.pending"),
+                  },
                 ]}
               />
             </div>
@@ -963,7 +1082,9 @@ function FraudReviewScreen({
           <div className="lender-fraud-only-grid">
             <Card className="review-score-card">
               <CardHeader eyebrow={t("lender.trustScore")} />
-              <div className="mt-4"><ScoreDetail score={detail.score} insights={null} /></div>
+              <div className="mt-4">
+                <ScoreDetail score={detail.score} insights={null} />
+              </div>
             </Card>
             <div className="lender-fraud-action-stack">
               <FraudReviewCard
@@ -1042,6 +1163,9 @@ export default function LenderDashboardView({
   onSectionChange,
   reviewMode,
   onOpenFraudRequest,
+  blockchainState,
+  blockchainError,
+  onVerifyBlockchain,
 }) {
   const { t } = useLanguage();
   const fraudCount = requests.filter((item) => item.fraudReview).length;
@@ -1099,6 +1223,9 @@ export default function LenderDashboardView({
             chatOpen={chatOpen}
             onOpenChat={onOpenChat}
             onCloseChat={onCloseChat}
+            blockchainState={blockchainState}
+            blockchainError={blockchainError}
+            onVerifyBlockchain={onVerifyBlockchain}
           />
         )}
       </LenderWorkspace>
@@ -1124,22 +1251,56 @@ export default function LenderDashboardView({
 
         {activeSection === "overview" && (
           <>
-            <div className="dashboard-summary lender-summary" aria-label={t("lender.inbox")}>
+            <div
+              className="dashboard-summary lender-summary"
+              aria-label={t("lender.inbox")}
+            >
               <Card as="article" className="dashboard-stat">
-                <span className="dashboard-stat-icon" aria-hidden="true">!</span>
-                <div><p className="dashboard-stat-label">{t("lender.filterPending")}</p><p className="dashboard-stat-value">{pendingCount}</p></div>
+                <span className="dashboard-stat-icon" aria-hidden="true">
+                  !
+                </span>
+                <div>
+                  <p className="dashboard-stat-label">
+                    {t("lender.filterPending")}
+                  </p>
+                  <p className="dashboard-stat-value">{pendingCount}</p>
+                </div>
               </Card>
               <Card as="article" className="dashboard-stat">
-                <span className="dashboard-stat-icon" aria-hidden="true">✓</span>
-                <div><p className="dashboard-stat-label">{t("lender.filterAccepted")}</p><p className="dashboard-stat-value">{acceptedCount}</p></div>
+                <span className="dashboard-stat-icon" aria-hidden="true">
+                  ✓
+                </span>
+                <div>
+                  <p className="dashboard-stat-label">
+                    {t("lender.filterAccepted")}
+                  </p>
+                  <p className="dashboard-stat-value">{acceptedCount}</p>
+                </div>
               </Card>
               <Card as="article" className="dashboard-stat">
-                <span className="dashboard-stat-icon" aria-hidden="true">—</span>
-                <div><p className="dashboard-stat-label">{t("lender.filterDeclined")}</p><p className="dashboard-stat-value">{declinedCount}</p></div>
+                <span className="dashboard-stat-icon" aria-hidden="true">
+                  —
+                </span>
+                <div>
+                  <p className="dashboard-stat-label">
+                    {t("lender.filterDeclined")}
+                  </p>
+                  <p className="dashboard-stat-value">{declinedCount}</p>
+                </div>
               </Card>
-              <Card as="article" className="dashboard-stat dashboard-stat-total">
-                <span className="dashboard-stat-icon" aria-hidden="true">#</span>
-                <div><p className="dashboard-stat-label">{t("lender.filterAll")}</p><p className="dashboard-stat-value">{totalRequests}</p></div>
+              <Card
+                as="article"
+                className="dashboard-stat dashboard-stat-total"
+              >
+                <span className="dashboard-stat-icon" aria-hidden="true">
+                  #
+                </span>
+                <div>
+                  <p className="dashboard-stat-label">
+                    {t("lender.filterAll")}
+                  </p>
+                  <p className="dashboard-stat-value">{totalRequests}</p>
+                </div>
               </Card>
             </div>
             <RequestList

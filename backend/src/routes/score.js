@@ -7,6 +7,8 @@ const {
   getLatestScoreByUser,
   getStatementsByUser,
   hasConsent,
+  updateUser,
+  updateScoreAnchor,
 } = require("../data/db");
 const {
   buildCategorySummaries,
@@ -14,7 +16,10 @@ const {
 } = require("../services/insights");
 const { requireAuth } = require("../middlewares/validation");
 const { mlServiceUrl } = require("../config");
-const { anchorScore } = require("../services/blockchain");
+const {
+  anchorScore,
+  derivePseudonymousAddress,
+} = require("../services/blockchain");
 
 const router = express.Router();
 
@@ -154,6 +159,11 @@ router.post("/compute", requireAuth, async (req, res) => {
       createdAt: new Date().toISOString(),
     };
 
+    const pseudonymousAddress = derivePseudonymousAddress(user.id);
+    if (pseudonymousAddress && !user.blockchainAddress) {
+      await updateUser(user.id, { blockchainAddress: pseudonymousAddress });
+    }
+
     await saveScore(scoreRecord);
     scores.push(scoreRecord);
 
@@ -163,9 +173,10 @@ router.post("/compute", requireAuth, async (req, res) => {
       tier: scoreRecord.tier,
       factors: scoreRecord.factors,
       userId: scoreRecord.userId,
-      userAddress,
+      userAddress: pseudonymousAddress,
       timestamp: scoreRecord.createdAt,
     });
+    await updateScoreAnchor(scoreRecord.id, anchor);
 
     // Borrower-facing response: tier and behavioural categories only. The raw
     // score, risk label, and SHAP factors stay server-side and are released

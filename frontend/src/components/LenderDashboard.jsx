@@ -40,6 +40,8 @@ export default function LenderDashboard({ session, onLogout }) {
   const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
   const [chatError, setChatError] = useState("");
   const [chatGrounding, setChatGrounding] = useState("");
+  const [blockchainState, setBlockchainState] = useState("idle");
+  const [blockchainError, setBlockchainError] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
   const [activeSection, setActiveSection] = useState(() => {
     const section = new URLSearchParams(window.location.search).get("section");
@@ -58,6 +60,8 @@ export default function LenderDashboard({ session, onLogout }) {
     setChatMessages([]);
     setChatError("");
     setChatGrounding("");
+    setBlockchainState("idle");
+    setBlockchainError("");
     setChatOpen(false);
     setDecisionDraft(null);
     setDecisionReason("");
@@ -107,8 +111,12 @@ export default function LenderDashboard({ session, onLogout }) {
       if (statusFilter !== "all" && item.status !== statusFilter) return false;
       if (!term) return true;
       return (
-        String(item.borrowerName || "").toLowerCase().includes(term) ||
-        String(item.borrowerPhone || "").toLowerCase().includes(term)
+        String(item.borrowerName || "")
+          .toLowerCase()
+          .includes(term) ||
+        String(item.borrowerPhone || "")
+          .toLowerCase()
+          .includes(term)
       );
     });
   }, [loanRequests, statusFilter, search]);
@@ -165,12 +173,12 @@ export default function LenderDashboard({ session, onLogout }) {
 
       try {
         const detail = await request(`/loans/requests/${requestId}`);
-      setRequestDetail(detail);
+        setRequestDetail(detail);
         setBorrowerId(detail.borrower.id);
-      setScoreData(detail.score);
-      setFraudReason("");
-      setFraudError("");
-      await loadChatHistory(detail.borrower.id);
+        setScoreData(detail.score);
+        setFraudReason("");
+        setFraudError("");
+        await loadChatHistory(detail.borrower.id);
       } catch (error) {
         setDetailError(error.message);
       } finally {
@@ -292,6 +300,26 @@ export default function LenderDashboard({ session, onLogout }) {
     }
   };
 
+  const verifyBlockchain = async () => {
+    if (!borrowerId.trim()) return;
+    setBlockchainState("loading");
+    setBlockchainError("");
+    try {
+      const result = await request(
+        `/lender/score/${encodeURIComponent(borrowerId.trim())}/blockchain`,
+      );
+      setBlockchainState(result.status || "unknown");
+      setRequestDetail((current) =>
+        current?.score
+          ? { ...current, score: { ...current.score, blockchain: result } }
+          : current,
+      );
+    } catch (error) {
+      setBlockchainState("error");
+      setBlockchainError(error.message);
+    }
+  };
+
   const backToDashboard = () => {
     window.history.pushState({}, "", window.location.pathname);
     resetDetail();
@@ -363,6 +391,9 @@ export default function LenderDashboard({ session, onLogout }) {
       chatOpen={chatOpen}
       onOpenChat={() => setChatOpen(true)}
       onCloseChat={() => setChatOpen(false)}
+      blockchainState={blockchainState}
+      blockchainError={blockchainError}
+      onVerifyBlockchain={verifyBlockchain}
       question={chatQuestion}
       messages={chatMessages}
       chatError={chatError}

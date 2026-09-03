@@ -30,6 +30,7 @@ function mapUserRow(row) {
     permanentAddress: row.permanentAddress ?? row.permanent_address,
     nidFrontUrl: row.nidFrontUrl ?? row.nid_front_url,
     nidBackUrl: row.nidBackUrl ?? row.nid_back_url,
+    blockchainAddress: row.blockchainAddress ?? row.blockchain_address,
     createdAt: row.createdAt ?? row.created_at,
   };
 }
@@ -164,9 +165,10 @@ async function createUser(user) {
           permanent_address,
           nid_front_url,
           nid_back_url,
+          blockchain_address,
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
         ON CONFLICT (id) DO NOTHING
         RETURNING *
       `,
@@ -184,6 +186,7 @@ async function createUser(user) {
         user.permanentAddress || null,
         user.nidFrontUrl || null,
         user.nidBackUrl || null,
+        user.blockchainAddress || null,
       ],
     );
     return mapUserRow(result.rows[0]) || (await getUserById(user.id));
@@ -332,7 +335,8 @@ async function deleteUser(userId) {
     conversations
       .filter(
         (conversation) =>
-          conversation.userId === userId || conversation.subjectUserId === userId,
+          conversation.userId === userId ||
+          conversation.subjectUserId === userId,
       )
       .map((conversation) => conversation.id),
   );
@@ -369,17 +373,23 @@ async function deleteUser(userId) {
   conversations.splice(
     0,
     conversations.length,
-    ...conversations.filter((conversation) => !conversationIds.has(conversation.id)),
+    ...conversations.filter(
+      (conversation) => !conversationIds.has(conversation.id),
+    ),
   );
   messages.splice(
     0,
     messages.length,
-    ...messages.filter((message) => !conversationIds.has(message.conversationId)),
+    ...messages.filter(
+      (message) => !conversationIds.has(message.conversationId),
+    ),
   );
   lenderApplications.splice(
     0,
     lenderApplications.length,
-    ...lenderApplications.filter((application) => application.userId !== userId),
+    ...lenderApplications.filter(
+      (application) => application.userId !== userId,
+    ),
   );
   return true;
 }
@@ -601,8 +611,10 @@ async function saveScore(record) {
   if (pool) {
     const result = await pool.query(
       `
-        INSERT INTO scores (id, user_id, raw_score, risk_label, tier, factors, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        INSERT INTO scores (id, user_id, raw_score, risk_label, tier, factors,
+          score_hash, transaction_hash, anchor_status, anchored_at,
+          anchor_network, anchor_contract_address, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
         RETURNING *
       `,
       [
@@ -612,12 +624,50 @@ async function saveScore(record) {
         record.riskLevel || "unknown",
         record.tier,
         JSON.stringify(record.factors || {}),
+        record.scoreHash || null,
+        record.transactionHash || null,
+        record.anchorStatus || "not_configured",
+        record.anchoredAt || null,
+        record.anchorNetwork || null,
+        record.anchorContractAddress || null,
       ],
     );
     return result.rows[0];
   }
 
   return record;
+}
+
+async function updateScoreAnchor(scoreId, anchor) {
+  if (pool) {
+    const result = await pool.query(
+      `UPDATE scores SET score_hash = $1, transaction_hash = $2,
+        anchor_status = $3, anchored_at = $4, anchor_network = $5,
+        anchor_contract_address = $6 WHERE id = $7 RETURNING *`,
+      [
+        anchor.scoreHash || null,
+        anchor.transactionHash || null,
+        anchor.status || "failed",
+        anchor.anchoredAt || null,
+        anchor.network || null,
+        anchor.contractAddress || null,
+        scoreId,
+      ],
+    );
+    return result.rows[0] || null;
+  }
+
+  const score = scores.find((item) => item.id === scoreId);
+  if (!score) return null;
+  Object.assign(score, {
+    scoreHash: anchor.scoreHash || null,
+    transactionHash: anchor.transactionHash || null,
+    anchorStatus: anchor.status || "failed",
+    anchoredAt: anchor.anchoredAt || null,
+    anchorNetwork: anchor.network || null,
+    anchorContractAddress: anchor.contractAddress || null,
+  });
+  return score;
 }
 
 async function getLatestScoreByUser(userId) {
@@ -970,7 +1020,8 @@ async function getLoanRequestsByLender(lenderId) {
         fraudReview:
           [...fraudReviews]
             .filter((review) => review.loanRequestId === item.id)
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null,
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] ||
+          null,
       };
     })
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -1003,7 +1054,12 @@ async function updateLoanRequestStatus(
   return loanRequests[index];
 }
 
-async function createFraudReview({ borrowerId, lenderId, loanRequestId, reason }) {
+async function createFraudReview({
+  borrowerId,
+  lenderId,
+  loanRequestId,
+  reason,
+}) {
   const record = {
     id: `fraud_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     borrowerId,
@@ -1094,7 +1150,9 @@ async function getFraudReviews() {
     .map((review) => {
       const borrower = users.find((user) => user.id === review.borrowerId);
       const lender = users.find((user) => user.id === review.lenderId);
-      const loan = loanRequests.find((item) => item.id === review.loanRequestId);
+      const loan = loanRequests.find(
+        (item) => item.id === review.loanRequestId,
+      );
       return {
         ...review,
         borrowerName: borrower?.name || review.borrowerId,

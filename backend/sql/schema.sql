@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   permanent_address TEXT,
   nid_front_url TEXT,
   nid_back_url TEXT,
+  blockchain_address TEXT UNIQUE,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
@@ -26,11 +27,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_number TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS permanent_address TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_front_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_back_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS blockchain_address TEXT;
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
 ALTER TABLE users ALTER COLUMN phone_number SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_phone_number_unique ON users (phone_number) WHERE phone_number IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_nid_number_unique ON users (nid_number) WHERE nid_number IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS users_blockchain_address_unique ON users (blockchain_address) WHERE blockchain_address IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS lender_applications (
   id TEXT PRIMARY KEY,
@@ -76,8 +79,21 @@ CREATE TABLE IF NOT EXISTS scores (
   risk_label TEXT NOT NULL,
   tier TEXT NOT NULL,
   factors JSONB NOT NULL DEFAULT '{}'::jsonb,
+  score_hash TEXT,
+  transaction_hash TEXT,
+  anchor_status TEXT NOT NULL DEFAULT 'not_configured',
+  anchored_at TIMESTAMP,
+  anchor_network TEXT,
+  anchor_contract_address TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE scores ADD COLUMN IF NOT EXISTS score_hash TEXT;
+ALTER TABLE scores ADD COLUMN IF NOT EXISTS transaction_hash TEXT;
+ALTER TABLE scores ADD COLUMN IF NOT EXISTS anchor_status TEXT NOT NULL DEFAULT 'not_configured';
+ALTER TABLE scores ADD COLUMN IF NOT EXISTS anchored_at TIMESTAMP;
+ALTER TABLE scores ADD COLUMN IF NOT EXISTS anchor_network TEXT;
+ALTER TABLE scores ADD COLUMN IF NOT EXISTS anchor_contract_address TEXT;
 
 CREATE TABLE IF NOT EXISTS loan_requests (
   id TEXT PRIMARY KEY,

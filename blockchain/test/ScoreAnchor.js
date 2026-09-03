@@ -44,4 +44,26 @@ describe("ScoreAnchor", function () {
 
     expect(errorMessage).to.include("score already anchored");
   });
+
+  it("allows only the contract owner to anchor scores", async function () {
+    const [owner, other, borrower] = await ethers.getSigners();
+    const ScoreAnchor = await ethers.getContractFactory("ScoreAnchor");
+    const contract = await ScoreAnchor.deploy();
+    await contract.waitForDeployment();
+
+    const scoreHash = ethers.keccak256(ethers.toUtf8Bytes("owner-only"));
+    let errorMessage = "";
+    try {
+      await contract
+        .connect(other)
+        .anchorScore(scoreHash, borrower.address, 1760000000);
+    } catch (error) {
+      errorMessage = error.message;
+    }
+    expect(errorMessage).to.include("only owner can anchor");
+
+    await contract
+      .connect(owner)
+      .anchorScore(scoreHash, borrower.address, 1760000000);
+  });
 });

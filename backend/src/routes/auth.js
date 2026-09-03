@@ -471,8 +471,8 @@ router.get("/profile", requireAuth, async (req, res) => {
 
   return res.json({
     profile: profilePayload(user, {
-      front: user.nidFrontUrl ? "/auth/profile/nid/front" : null,
-      back: user.nidBackUrl ? "/auth/profile/nid/back" : null,
+      front: user.nidFrontUrl ? "/auth/profile/nid/front?role=borrower" : null,
+      back: user.nidBackUrl ? "/auth/profile/nid/back?role=borrower" : null,
     }),
   });
 });
@@ -484,7 +484,12 @@ router.get("/profile/nid/:side", requireAuth, async (req, res) => {
 
   const user = await getUserById(req.user.id);
   const filePath = safeNidPath(user, req.params.side);
-  if (!user || user.role !== "borrower" || !filePath || !fs.existsSync(filePath)) {
+  if (
+    !user ||
+    user.role !== "borrower" ||
+    !filePath ||
+    !fs.existsSync(filePath)
+  ) {
     return res.status(404).json({ message: "NID document not found." });
   }
 
@@ -517,25 +522,29 @@ router.get("/admin/borrowers", requireAuth, async (req, res) => {
   });
 });
 
-router.get("/admin/borrowers/:borrowerId/nid/:side", requireAuth, async (req, res) => {
-  if (!(await requireAdminUser(req, res))) return;
-  if (!["front", "back"].includes(req.params.side)) {
-    return res.status(404).json({ message: "NID document not found." });
-  }
+router.get(
+  "/admin/borrowers/:borrowerId/nid/:side",
+  requireAuth,
+  async (req, res) => {
+    if (!(await requireAdminUser(req, res))) return;
+    if (!["front", "back"].includes(req.params.side)) {
+      return res.status(404).json({ message: "NID document not found." });
+    }
 
-  const borrower = await getUserById(req.params.borrowerId);
-  const filePath = safeNidPath(borrower, req.params.side);
-  if (
-    !borrower ||
-    borrower.role !== "borrower" ||
-    !filePath ||
-    !fs.existsSync(filePath)
-  ) {
-    return res.status(404).json({ message: "NID document not found." });
-  }
+    const borrower = await getUserById(req.params.borrowerId);
+    const filePath = safeNidPath(borrower, req.params.side);
+    if (
+      !borrower ||
+      borrower.role !== "borrower" ||
+      !filePath ||
+      !fs.existsSync(filePath)
+    ) {
+      return res.status(404).json({ message: "NID document not found." });
+    }
 
-  return res.sendFile(filePath);
-});
+    return res.sendFile(filePath);
+  },
+);
 
 router.get("/admin/borrowers/:borrowerId", requireAuth, async (req, res) => {
   if (!(await requireAdminUser(req, res))) return;
@@ -576,7 +585,10 @@ router.delete("/admin/borrowers/:borrowerId", requireAuth, async (req, res) => {
     try {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     } catch (error) {
-      console.warn("Could not remove deleted borrower document:", error.message);
+      console.warn(
+        "Could not remove deleted borrower document:",
+        error.message,
+      );
     }
   });
 
@@ -631,36 +643,40 @@ router.get("/admin/fraud-reviews/:reviewId", requireAuth, async (req, res) => {
   });
 });
 
-router.patch("/admin/fraud-reviews/:reviewId", requireAuth, async (req, res) => {
-  const admin = await requireAdminUser(req, res);
-  if (!admin) return;
+router.patch(
+  "/admin/fraud-reviews/:reviewId",
+  requireAuth,
+  async (req, res) => {
+    const admin = await requireAdminUser(req, res);
+    if (!admin) return;
 
-  const { status } = req.body || {};
-  const adminNotes =
-    typeof req.body?.adminNotes === "string"
-      ? req.body.adminNotes.trim().slice(0, 2000)
-      : "";
-  if (!FRAUD_REVIEW_STATUSES.includes(status)) {
-    return res.status(400).json({
-      message: `status must be one of: ${FRAUD_REVIEW_STATUSES.join(", ")}.`,
+    const { status } = req.body || {};
+    const adminNotes =
+      typeof req.body?.adminNotes === "string"
+        ? req.body.adminNotes.trim().slice(0, 2000)
+        : "";
+    if (!FRAUD_REVIEW_STATUSES.includes(status)) {
+      return res.status(400).json({
+        message: `status must be one of: ${FRAUD_REVIEW_STATUSES.join(", ")}.`,
+      });
+    }
+
+    const updated = await updateFraudReview(
+      req.params.reviewId,
+      status,
+      adminNotes,
+      admin.id,
+    );
+    if (!updated) {
+      return res.status(404).json({ message: "Fraud review not found." });
+    }
+
+    return res.json({
+      message: "Fraud review updated successfully.",
+      fraudReview: updated,
     });
-  }
-
-  const updated = await updateFraudReview(
-    req.params.reviewId,
-    status,
-    adminNotes,
-    admin.id,
-  );
-  if (!updated) {
-    return res.status(404).json({ message: "Fraud review not found." });
-  }
-
-  return res.json({
-    message: "Fraud review updated successfully.",
-    fraudReview: updated,
-  });
-});
+  },
+);
 
 router.post("/dev-test-otp", validatePhoneOnly, async (req, res) => {
   const { name, phone, role = "borrower" } = req.body;

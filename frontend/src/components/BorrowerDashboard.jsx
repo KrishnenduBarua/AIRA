@@ -93,7 +93,7 @@ export default function BorrowerDashboard({ session, onLogout }) {
   const loadAccountProfile = useCallback(async () => {
     setAccountProfileState("loading");
     try {
-      const data = await request("/auth/profile");
+      const data = await request("/auth/profile?role=borrower");
       setAccountProfile(data.profile || null);
       setAccountProfileError("");
       setAccountProfileState("ready");
@@ -251,7 +251,10 @@ export default function BorrowerDashboard({ session, onLogout }) {
     } catch (error) {
       // A locked PDF is not a failure the borrower should have to decode: the
       // server names the reason, so the password field is opened for them.
-      if (error.code === "password_required" || error.code === "password_incorrect") {
+      if (
+        error.code === "password_required" ||
+        error.code === "password_incorrect"
+      ) {
         setPasswordNeeded(true);
       }
       setUploadError(uploadErrorMessage(error));
