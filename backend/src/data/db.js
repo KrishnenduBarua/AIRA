@@ -14,6 +14,7 @@ const lenderApplications = [];
 const loanRequests = [];
 const conversations = [];
 const messages = [];
+const fraudReviews = [];
 
 function mapUserRow(row) {
   if (!row) return null;
@@ -31,6 +32,15 @@ function mapUserRow(row) {
     nidBackUrl: row.nidBackUrl ?? row.nid_back_url,
     createdAt: row.createdAt ?? row.created_at,
   };
+}
+
+// PostgreSQL returns BOOLEAN values as booleans, but older imported/demo rows
+// can contain the equivalent value as a string or number. Keep consent
+// decisions consistent at every API boundary without treating "false" as
+// granted just because it is a non-empty string.
+function hasConsent(user) {
+  const value = user?.consentGiven ?? user?.consent_given;
+  return value === true || value === 1 || value === "1" || value === "true";
 }
 
 function mapLenderApplicationRow(row) {
@@ -61,6 +71,21 @@ function mapLoanRequestRow(row) {
     createdAt: row.createdAt ?? row.created_at,
     reviewedAt: row.reviewedAt ?? row.reviewed_at,
     decisionReason: row.decisionReason ?? row.decision_reason ?? null,
+  };
+}
+
+function mapFraudReviewRow(row) {
+  if (!row) return null;
+
+  return {
+    ...row,
+    borrowerId: row.borrowerId ?? row.borrower_id,
+    lenderId: row.lenderId ?? row.lender_id,
+    loanRequestId: row.loanRequestId ?? row.loan_request_id,
+    adminNotes: row.adminNotes ?? row.admin_notes ?? "",
+    reviewedBy: row.reviewedBy ?? row.reviewed_by,
+    createdAt: row.createdAt ?? row.created_at,
+    reviewedAt: row.reviewedAt ?? row.reviewed_at,
   };
 }
 
@@ -238,6 +263,125 @@ async function getUserById(userId) {
   }
 
   return users.find((user) => user.id === userId) || null;
+}
+
+async function getBorrowers() {
+  if (pool) {
+    const result = await pool.query(
+      `SELECT id, name, email, phone_number, consent_given, nid_verified,
+              date_of_birth, nid_number, permanent_address,
+              nid_front_url, nid_back_url, created_at
+       FROM users
+       WHERE role = 'borrower'
+       ORDER BY created_at DESC`,
+    );
+    return result.rows.map(mapUserRow);
+  }
+
+  return users
+    .filter((user) => user.role === "borrower")
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+// Remove a borrower and the records that reference the user. The foreign keys
+// in older installations do not all use ON DELETE CASCADE, so doing this
+// explicitly keeps account deletion reliable in both old and new databases.
+async function deleteUser(userId) {
+  if (pool) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "DELETE FROM fraud_reviews WHERE borrower_id = $1 OR lender_id = $1",
+        [userId],
+      );
+      await client.query(
+        "DELETE FROM loan_requests WHERE borrower_id = $1 OR lender_id = $1",
+        [userId],
+      );
+      await client.query(
+        "DELETE FROM conversations WHERE user_id = $1 OR subject_user_id = $1",
+        [userId],
+      );
+      await client.query("DELETE FROM statements WHERE user_id = $1", [userId]);
+      await client.query("DELETE FROM scores WHERE user_id = $1", [userId]);
+      await client.query("DELETE FROM consent_records WHERE user_id = $1", [
+        userId,
+      ]);
+      await client.query("DELETE FROM lender_applications WHERE user_id = $1", [
+        userId,
+      ]);
+      const result = await client.query(
+        "DELETE FROM users WHERE id = $1 RETURNING id",
+        [userId],
+      );
+      await client.query("COMMIT");
+      return Boolean(result.rows[0]);
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const index = users.findIndex((user) => user.id === userId);
+  if (index < 0) return false;
+
+  const conversationIds = new Set(
+    conversations
+      .filter(
+        (conversation) =>
+          conversation.userId === userId || conversation.subjectUserId === userId,
+      )
+      .map((conversation) => conversation.id),
+  );
+  users.splice(index, 1);
+  statements.splice(
+    0,
+    statements.length,
+    ...statements.filter((statement) => statement.userId !== userId),
+  );
+  scores.splice(
+    0,
+    scores.length,
+    ...scores.filter((score) => score.userId !== userId),
+  );
+  consentRecords.splice(
+    0,
+    consentRecords.length,
+    ...consentRecords.filter((record) => record.userId !== userId),
+  );
+  loanRequests.splice(
+    0,
+    loanRequests.length,
+    ...loanRequests.filter(
+      (request) => request.borrowerId !== userId && request.lenderId !== userId,
+    ),
+  );
+  fraudReviews.splice(
+    0,
+    fraudReviews.length,
+    ...fraudReviews.filter(
+      (review) => review.borrowerId !== userId && review.lenderId !== userId,
+    ),
+  );
+  conversations.splice(
+    0,
+    conversations.length,
+    ...conversations.filter((conversation) => !conversationIds.has(conversation.id)),
+  );
+  messages.splice(
+    0,
+    messages.length,
+    ...messages.filter((message) => !conversationIds.has(message.conversationId)),
+  );
+  lenderApplications.splice(
+    0,
+    lenderApplications.length,
+    ...lenderApplications.filter((application) => application.userId !== userId),
+  );
+  return true;
 }
 
 async function updateUser(userId, updates) {
@@ -779,9 +923,19 @@ async function getLoanRequestsByLender(lenderId) {
   if (pool) {
     const result = await pool.query(
       `SELECT r.*, u.name AS borrower_name, u.phone_number AS borrower_phone,
-              u.nid_verified AS borrower_nid_verified
+              u.nid_verified AS borrower_nid_verified,
+              f.id AS fraud_review_id, f.status AS fraud_review_status,
+              f.reason AS fraud_review_reason, f.admin_notes AS fraud_review_admin_notes,
+              f.created_at AS fraud_review_created_at, f.reviewed_at AS fraud_review_reviewed_at
        FROM loan_requests r
        INNER JOIN users u ON u.id = r.borrower_id
+       LEFT JOIN LATERAL (
+         SELECT id, status, reason, admin_notes, created_at, reviewed_at
+         FROM fraud_reviews
+         WHERE loan_request_id = r.id
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) f ON TRUE
        WHERE r.lender_id = $1
        ORDER BY r.created_at DESC`,
       [lenderId],
@@ -791,6 +945,16 @@ async function getLoanRequestsByLender(lenderId) {
       borrowerName: row.borrower_name,
       borrowerPhone: row.borrower_phone,
       borrowerNidVerified: row.borrower_nid_verified,
+      fraudReview: row.fraud_review_id
+        ? {
+            id: row.fraud_review_id,
+            status: row.fraud_review_status,
+            reason: row.fraud_review_reason,
+            adminNotes: row.fraud_review_admin_notes,
+            createdAt: row.fraud_review_created_at,
+            reviewedAt: row.fraud_review_reviewed_at,
+          }
+        : null,
     }));
   }
 
@@ -803,6 +967,10 @@ async function getLoanRequestsByLender(lenderId) {
         borrowerName: borrower?.name || item.borrowerId,
         borrowerPhone: borrower?.phoneNumber || null,
         borrowerNidVerified: Boolean(borrower?.nidVerified),
+        fraudReview:
+          [...fraudReviews]
+            .filter((review) => review.loanRequestId === item.id)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null,
       };
     })
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -835,6 +1003,137 @@ async function updateLoanRequestStatus(
   return loanRequests[index];
 }
 
+async function createFraudReview({ borrowerId, lenderId, loanRequestId, reason }) {
+  const record = {
+    id: `fraud_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    borrowerId,
+    lenderId,
+    loanRequestId,
+    reason,
+    status: "pending",
+    adminNotes: "",
+    reviewedBy: null,
+    createdAt: new Date().toISOString(),
+    reviewedAt: null,
+  };
+
+  if (pool) {
+    const result = await pool.query(
+      `INSERT INTO fraud_reviews
+       (id, borrower_id, lender_id, loan_request_id, reason, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       RETURNING *`,
+      [
+        record.id,
+        record.borrowerId,
+        record.lenderId,
+        record.loanRequestId,
+        record.reason,
+        record.status,
+      ],
+    );
+    return mapFraudReviewRow(result.rows[0]);
+  }
+
+  fraudReviews.push(record);
+  return record;
+}
+
+async function getFraudReviewByRequestId(loanRequestId) {
+  if (pool) {
+    const result = await pool.query(
+      `SELECT * FROM fraud_reviews
+       WHERE loan_request_id = $1
+       ORDER BY created_at DESC LIMIT 1`,
+      [loanRequestId],
+    );
+    return mapFraudReviewRow(result.rows[0]);
+  }
+
+  return (
+    [...fraudReviews]
+      .filter((review) => review.loanRequestId === loanRequestId)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null
+  );
+}
+
+async function getFraudReviewById(reviewId) {
+  if (pool) {
+    const result = await pool.query(
+      "SELECT * FROM fraud_reviews WHERE id = $1 LIMIT 1",
+      [reviewId],
+    );
+    return mapFraudReviewRow(result.rows[0]);
+  }
+
+  return fraudReviews.find((review) => review.id === reviewId) || null;
+}
+
+async function getFraudReviews() {
+  if (pool) {
+    const result = await pool.query(
+      `SELECT f.*, b.name AS borrower_name, b.phone_number AS borrower_phone,
+              l.name AS lender_name, r.status AS loan_status
+       FROM fraud_reviews f
+       INNER JOIN users b ON b.id = f.borrower_id
+       INNER JOIN users l ON l.id = f.lender_id
+       LEFT JOIN loan_requests r ON r.id = f.loan_request_id
+       ORDER BY CASE WHEN f.status IN ('pending', 'reviewing') THEN 0 ELSE 1 END,
+                f.created_at DESC`,
+    );
+    return result.rows.map((row) => ({
+      ...mapFraudReviewRow(row),
+      borrowerName: row.borrower_name,
+      borrowerPhone: row.borrower_phone,
+      lenderName: row.lender_name,
+      loanStatus: row.loan_status,
+    }));
+  }
+
+  return [...fraudReviews]
+    .map((review) => {
+      const borrower = users.find((user) => user.id === review.borrowerId);
+      const lender = users.find((user) => user.id === review.lenderId);
+      const loan = loanRequests.find((item) => item.id === review.loanRequestId);
+      return {
+        ...review,
+        borrowerName: borrower?.name || review.borrowerId,
+        borrowerPhone: borrower?.phoneNumber || null,
+        lenderName: lender?.name || review.lenderId,
+        loanStatus: loan?.status || null,
+      };
+    })
+    .sort((a, b) => {
+      const aOpen = ["pending", "reviewing"].includes(a.status);
+      const bOpen = ["pending", "reviewing"].includes(b.status);
+      if (aOpen !== bOpen) return aOpen ? -1 : 1;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+}
+
+async function updateFraudReview(reviewId, status, adminNotes, reviewedBy) {
+  if (pool) {
+    const result = await pool.query(
+      `UPDATE fraud_reviews
+       SET status = $1, admin_notes = $2, reviewed_by = $3, reviewed_at = NOW()
+       WHERE id = $4 RETURNING *`,
+      [status, adminNotes, reviewedBy, reviewId],
+    );
+    return mapFraudReviewRow(result.rows[0]);
+  }
+
+  const index = fraudReviews.findIndex((review) => review.id === reviewId);
+  if (index < 0) return null;
+  fraudReviews[index] = {
+    ...fraudReviews[index],
+    status,
+    adminNotes,
+    reviewedBy,
+    reviewedAt: new Date().toISOString(),
+  };
+  return fraudReviews[index];
+}
+
 function snakeCase(value) {
   return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
@@ -853,6 +1152,9 @@ module.exports = {
   getUserByNidNumber,
   getUserByEmail,
   getUserById,
+  getBorrowers,
+  deleteUser,
+  hasConsent,
   updateUser,
   saveStatement,
   saveConsent,
@@ -865,6 +1167,7 @@ module.exports = {
   getLatestScoreByUser,
   conversations,
   messages,
+  fraudReviews,
   getOrCreateConversation,
   getConversationMessages,
   saveConversationMessage,
@@ -878,4 +1181,9 @@ module.exports = {
   getLoanRequestsByBorrower,
   getLoanRequestsByLender,
   updateLoanRequestStatus,
+  createFraudReview,
+  getFraudReviewByRequestId,
+  getFraudReviewById,
+  getFraudReviews,
+  updateFraudReview,
 };

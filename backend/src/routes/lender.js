@@ -4,6 +4,7 @@ const {
   getUserByPhone,
   getLatestScoreByUser,
   getFlaggedUsers,
+  hasConsent,
 } = require("../data/db");
 const { requireAuth } = require("../middlewares/validation");
 const { normalizePhone } = require("../services/otp");
@@ -21,7 +22,7 @@ router.get("/score/:userId", requireAuth, async (req, res) => {
     return res.status(404).json({ message: "User not found." });
   }
 
-  if (user.consent_given !== true && user.consentGiven !== true) {
+  if (!hasConsent(user)) {
     return res
       .status(403)
       .json({ message: "Consent is required before sharing a lender score." });

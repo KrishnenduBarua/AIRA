@@ -8,6 +8,14 @@ const {
   getUserByPhone,
   getUserByNidNumber,
   getUserById,
+  getBorrowers,
+  deleteUser,
+  hasConsent,
+  getFraudReviews,
+  getFraudReviewById,
+  updateFraudReview,
+  getLatestScoreByUser,
+  getLoanRequestById,
   updateUser,
   saveConsent,
   saveLenderApplication,
@@ -40,6 +48,7 @@ const {
 
 const uploadDir = path.join(__dirname, "..", "uploads", "nid");
 fs.mkdirSync(uploadDir, { recursive: true });
+const FRAUD_REVIEW_STATUSES = ["pending", "reviewing", "cleared", "confirmed"];
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -102,6 +111,48 @@ function normalizeNidNumber(value) {
   return String(value || "")
     .replace(/\s+/g, "")
     .toUpperCase();
+}
+
+function safeNidPath(user, side) {
+  const storedPath = side === "front" ? user?.nidFrontUrl : user?.nidBackUrl;
+  if (!storedPath) return null;
+
+  const root = path.resolve(uploadDir);
+  const resolved = path.resolve(storedPath);
+  const relative = path.relative(root, resolved);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    return null;
+  }
+  return resolved;
+}
+
+function profilePayload(user, documents) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email || null,
+    phoneNumber: user.phoneNumber,
+    dateOfBirth: user.dateOfBirth || null,
+    nidNumber: user.nidNumber || null,
+    permanentAddress: user.permanentAddress || null,
+    consentGiven: hasConsent(user),
+    nidVerified:
+      user.nidVerified === true ||
+      user.nidVerified === 1 ||
+      user.nidVerified === "1" ||
+      user.nidVerified === "true",
+    createdAt: user.createdAt || null,
+    documents,
+  };
+}
+
+async function requireAdminUser(req, res) {
+  const admin = await getUserById(req.user.id);
+  if (!admin || admin.role !== "admin") {
+    res.status(403).json({ message: "Admin access required." });
+    return null;
+  }
+  return admin;
 }
 
 function getPasswordHash(user) {
@@ -408,6 +459,207 @@ router.get("/session", optionalAuth, async (req, res) => {
 router.post("/logout", (_req, res) => {
   clearSessionCookie(res);
   return res.json({ message: "Logged out successfully." });
+});
+
+// A borrower can inspect the identity details submitted during signup. The
+// password is intentionally never returned, even though it is part of signup.
+router.get("/profile", requireAuth, async (req, res) => {
+  const user = await getUserById(req.user.id);
+  if (!user || user.role !== "borrower") {
+    return res.status(404).json({ message: "Borrower profile not found." });
+  }
+
+  return res.json({
+    profile: profilePayload(user, {
+      front: user.nidFrontUrl ? "/auth/profile/nid/front" : null,
+      back: user.nidBackUrl ? "/auth/profile/nid/back" : null,
+    }),
+  });
+});
+
+router.get("/profile/nid/:side", requireAuth, async (req, res) => {
+  if (!["front", "back"].includes(req.params.side)) {
+    return res.status(404).json({ message: "NID document not found." });
+  }
+
+  const user = await getUserById(req.user.id);
+  const filePath = safeNidPath(user, req.params.side);
+  if (!user || user.role !== "borrower" || !filePath || !fs.existsSync(filePath)) {
+    return res.status(404).json({ message: "NID document not found." });
+  }
+
+  return res.sendFile(filePath);
+});
+
+// Borrower identity review does not create an approval queue. Admins can open
+// the submitted details and documents, and remove the account when something
+// is wrong or abusive.
+router.get("/admin/borrowers", requireAuth, async (req, res) => {
+  if (!(await requireAdminUser(req, res))) return;
+
+  const borrowers = await getBorrowers();
+  return res.json({
+    borrowers: borrowers.map((user) => ({
+      id: user.id,
+      name: user.name,
+      phoneNumber: user.phoneNumber,
+      nidNumber: user.nidNumber || null,
+      nidVerified:
+        user.nidVerified === true ||
+        user.nidVerified === 1 ||
+        user.nidVerified === "1" ||
+        user.nidVerified === "true",
+      consentGiven: hasConsent(user),
+      createdAt: user.createdAt || null,
+      hasNidFront: Boolean(user.nidFrontUrl),
+      hasNidBack: Boolean(user.nidBackUrl),
+    })),
+  });
+});
+
+router.get("/admin/borrowers/:borrowerId/nid/:side", requireAuth, async (req, res) => {
+  if (!(await requireAdminUser(req, res))) return;
+  if (!["front", "back"].includes(req.params.side)) {
+    return res.status(404).json({ message: "NID document not found." });
+  }
+
+  const borrower = await getUserById(req.params.borrowerId);
+  const filePath = safeNidPath(borrower, req.params.side);
+  if (
+    !borrower ||
+    borrower.role !== "borrower" ||
+    !filePath ||
+    !fs.existsSync(filePath)
+  ) {
+    return res.status(404).json({ message: "NID document not found." });
+  }
+
+  return res.sendFile(filePath);
+});
+
+router.get("/admin/borrowers/:borrowerId", requireAuth, async (req, res) => {
+  if (!(await requireAdminUser(req, res))) return;
+
+  const borrower = await getUserById(req.params.borrowerId);
+  if (!borrower || borrower.role !== "borrower") {
+    return res.status(404).json({ message: "Borrower not found." });
+  }
+
+  const borrowerId = encodeURIComponent(borrower.id);
+  return res.json({
+    borrower: profilePayload(borrower, {
+      front: borrower.nidFrontUrl
+        ? `/auth/admin/borrowers/${borrowerId}/nid/front`
+        : null,
+      back: borrower.nidBackUrl
+        ? `/auth/admin/borrowers/${borrowerId}/nid/back`
+        : null,
+    }),
+  });
+});
+
+router.delete("/admin/borrowers/:borrowerId", requireAuth, async (req, res) => {
+  if (!(await requireAdminUser(req, res))) return;
+
+  const borrower = await getUserById(req.params.borrowerId);
+  if (!borrower || borrower.role !== "borrower") {
+    return res.status(404).json({ message: "Borrower not found." });
+  }
+
+  const files = [safeNidPath(borrower, "front"), safeNidPath(borrower, "back")];
+  const deleted = await deleteUser(borrower.id);
+  if (!deleted) {
+    return res.status(404).json({ message: "Borrower not found." });
+  }
+
+  files.filter(Boolean).forEach((filePath) => {
+    try {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (error) {
+      console.warn("Could not remove deleted borrower document:", error.message);
+    }
+  });
+
+  return res.json({ message: "Borrower account deleted successfully." });
+});
+
+router.get("/admin/fraud-reviews", requireAuth, async (req, res) => {
+  if (!(await requireAdminUser(req, res))) return;
+  return res.json({ fraudReviews: await getFraudReviews() });
+});
+
+router.get("/admin/fraud-reviews/:reviewId", requireAuth, async (req, res) => {
+  if (!(await requireAdminUser(req, res))) return;
+
+  const fraudReview = await getFraudReviewById(req.params.reviewId);
+  if (!fraudReview) {
+    return res.status(404).json({ message: "Fraud review not found." });
+  }
+
+  const borrower = await getUserById(fraudReview.borrowerId);
+  const lender = await getUserById(fraudReview.lenderId);
+  const loanRequest = await getLoanRequestById(fraudReview.loanRequestId);
+  if (!borrower || borrower.role !== "borrower") {
+    return res.status(404).json({ message: "Borrower not found." });
+  }
+
+  const borrowerId = encodeURIComponent(borrower.id);
+  const score = await getLatestScoreByUser(borrower.id);
+  return res.json({
+    fraudReview: {
+      ...fraudReview,
+      borrower: profilePayload(borrower, {
+        front: borrower.nidFrontUrl
+          ? `/auth/admin/borrowers/${borrowerId}/nid/front`
+          : null,
+        back: borrower.nidBackUrl
+          ? `/auth/admin/borrowers/${borrowerId}/nid/back`
+          : null,
+      }),
+      lender: lender
+        ? { id: lender.id, name: lender.name, phoneNumber: lender.phoneNumber }
+        : null,
+      loanRequest,
+      score: score
+        ? {
+            score: score.raw_score ?? score.score,
+            riskLevel: score.risk_label ?? score.riskLevel,
+            tier: score.tier,
+          }
+        : null,
+    },
+  });
+});
+
+router.patch("/admin/fraud-reviews/:reviewId", requireAuth, async (req, res) => {
+  const admin = await requireAdminUser(req, res);
+  if (!admin) return;
+
+  const { status } = req.body || {};
+  const adminNotes =
+    typeof req.body?.adminNotes === "string"
+      ? req.body.adminNotes.trim().slice(0, 2000)
+      : "";
+  if (!FRAUD_REVIEW_STATUSES.includes(status)) {
+    return res.status(400).json({
+      message: `status must be one of: ${FRAUD_REVIEW_STATUSES.join(", ")}.`,
+    });
+  }
+
+  const updated = await updateFraudReview(
+    req.params.reviewId,
+    status,
+    adminNotes,
+    admin.id,
+  );
+  if (!updated) {
+    return res.status(404).json({ message: "Fraud review not found." });
+  }
+
+  return res.json({
+    message: "Fraud review updated successfully.",
+    fraudReview: updated,
+  });
 });
 
 router.post("/dev-test-otp", validatePhoneOnly, async (req, res) => {

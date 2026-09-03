@@ -98,6 +98,29 @@ ALTER TABLE loan_requests ADD COLUMN IF NOT EXISTS decision_reason TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS loan_requests_open_unique
   ON loan_requests (borrower_id, lender_id) WHERE status = 'pending';
 
+-- Lenders can refer a borrower to an admin for a human fraud review. This is
+-- separate from the model's risk label and does not automatically decide a
+-- loan or mark the borrower as fraudulent.
+CREATE TABLE IF NOT EXISTS fraud_reviews (
+  id TEXT PRIMARY KEY,
+  borrower_id TEXT NOT NULL REFERENCES users(id),
+  lender_id TEXT NOT NULL REFERENCES users(id),
+  loan_request_id TEXT NOT NULL REFERENCES loan_requests(id),
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'reviewing', 'cleared', 'confirmed')),
+  admin_notes TEXT NOT NULL DEFAULT '',
+  reviewed_by TEXT REFERENCES users(id),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  reviewed_at TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS fraud_reviews_open_request_unique
+  ON fraud_reviews (loan_request_id)
+  WHERE status IN ('pending', 'reviewing');
+CREATE INDEX IF NOT EXISTS idx_fraud_reviews_status_created
+  ON fraud_reviews (status, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id),

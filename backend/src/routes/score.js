@@ -6,6 +6,7 @@ const {
   saveScore,
   getLatestScoreByUser,
   getStatementsByUser,
+  hasConsent,
 } = require("../data/db");
 const {
   buildCategorySummaries,
@@ -127,7 +128,7 @@ router.post("/compute", requireAuth, async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    if (!user.consentGiven) {
+    if (!hasConsent(user)) {
       return res.status(403).json({
         message: "User consent is required before score computation.",
       });

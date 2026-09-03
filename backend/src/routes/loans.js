@@ -12,6 +12,9 @@ const {
   getLatestScoreByUser,
   getStatementsByUser,
   getStatementById,
+  hasConsent,
+  createFraudReview,
+  getFraudReviewByRequestId,
 } = require("../data/db");
 const { requireAuth } = require("../middlewares/validation");
 const { buildLenderInsights } = require("../services/insights");
@@ -22,6 +25,8 @@ const DECISIONS = ["accepted", "declined"];
 // A written reason keeps every decision attributable to the human reviewer.
 const MIN_DECISION_REASON_LENGTH = 10;
 const MAX_DECISION_REASON_LENGTH = 1000;
+const MIN_FRAUD_REASON_LENGTH = 10;
+const MAX_FRAUD_REASON_LENGTH = 1000;
 
 async function requireRole(req, res, role) {
   const user = await getUserById(req.user.id);
@@ -102,7 +107,7 @@ router.post("/requests", requireAuth, async (req, res) => {
       return res.status(400).json({ message: "lenderId is required." });
     }
 
-    if (!borrower.consentGiven) {
+    if (!hasConsent(borrower)) {
       return res.status(403).json({
         message: "Grant data consent before sending a loan request.",
       });
@@ -188,7 +193,7 @@ router.get("/requests/:requestId", requireAuth, async (req, res) => {
       return res.status(404).json({ message: "Borrower not found." });
     }
 
-    if (!borrower.consentGiven) {
+    if (!hasConsent(borrower)) {
       return res.status(403).json({
         message: "This borrower has withdrawn data consent.",
       });
@@ -198,6 +203,7 @@ router.get("/requests/:requestId", requireAuth, async (req, res) => {
       getLatestScoreByUser(borrower.id),
       getStatementsByUser(borrower.id),
     ]);
+    const fraudReview = await getFraudReviewByRequestId(request.id);
 
     // The most recent statement carries the behavioural features behind the
     // score; it drives the anomaly, seasonality, and thin-file signals.
@@ -221,6 +227,7 @@ router.get("/requests/:requestId", requireAuth, async (req, res) => {
         joinedAt: borrower.createdAt,
       },
       score,
+      fraudReview,
       insights: buildLenderInsights({
         features: latestFeatures,
         factors: score?.factors || {},
@@ -230,6 +237,52 @@ router.get("/requests/:requestId", requireAuth, async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       message: "Failed to load the borrower profile.",
+      details: error.message,
+    });
+  }
+});
+
+// Lender: refer one of their applicants to the admin for a human fraud
+// review. This never changes the loan decision or labels the borrower itself.
+router.post("/requests/:requestId/fraud-review", requireAuth, async (req, res) => {
+  try {
+    const lender = await requireRole(req, res, "lender");
+    if (!lender) return;
+
+    const reason =
+      typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    if (reason.length < MIN_FRAUD_REASON_LENGTH) {
+      return res.status(400).json({
+        message: "A fraud review reason is required.",
+        details: `Please describe the concern in at least ${MIN_FRAUD_REASON_LENGTH} characters.`,
+      });
+    }
+
+    const request = await getLoanRequestById(req.params.requestId);
+    if (!request || request.lenderId !== lender.id) {
+      return res.status(404).json({ message: "Loan request not found." });
+    }
+
+    const existing = await getFraudReviewByRequestId(request.id);
+    if (existing && ["pending", "reviewing"].includes(existing.status)) {
+      return res.status(409).json({
+        message: "This applicant already has an open fraud review.",
+      });
+    }
+
+    const review = await createFraudReview({
+      borrowerId: request.borrowerId,
+      lenderId: lender.id,
+      loanRequestId: request.id,
+      reason: reason.slice(0, MAX_FRAUD_REASON_LENGTH),
+    });
+    return res.status(201).json({
+      message: "Applicant referred to admin fraud review.",
+      fraudReview: review,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to create the fraud review.",
       details: error.message,
     });
   }
@@ -250,7 +303,7 @@ router.get(
       }
 
       const borrower = await getUserById(request.borrowerId);
-      if (!borrower?.consentGiven) {
+      if (!hasConsent(borrower)) {
         return res.status(403).json({
           message: "This borrower has withdrawn data consent.",
         });

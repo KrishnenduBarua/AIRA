@@ -2,6 +2,7 @@ const express = require("express");
 const { requireAuth } = require("../middlewares/validation");
 const {
   getLatestScoreByUser,
+  hasConsent,
   getOrCreateConversation,
   getConversationMessages,
   saveConversationMessage,
@@ -23,7 +24,7 @@ async function resolveSubjectUser(req, mode, requestedSubjectId) {
   const subject =
     (await getUserById(requestedSubjectId)) ||
     (await getUserByPhone(normalizePhone(requestedSubjectId)));
-  if (!subject || subject.role !== "borrower" || !subject.consentGiven)
+  if (!subject || subject.role !== "borrower" || !hasConsent(subject))
     return null;
 
   const requests = await getLoanRequestsByLender(req.user.id);

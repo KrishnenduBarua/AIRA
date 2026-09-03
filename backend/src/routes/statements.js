@@ -50,6 +50,44 @@ function isSupportedStatement(filename) {
   return /\.(pdf|csv)$/i.test(filename || "");
 }
 
+// bKash and Nagad e-statements are password-protected PDFs. The password is
+// only ever held in memory for the length of this request: it unlocks the file
+// for parsing and is never written to disk, to the database, or to a log.
+function statementForm(fileBuffer, file, password) {
+  const form = new FormData();
+  form.append("statement", fileBuffer, {
+    filename: file.originalname,
+    contentType: file.mimetype,
+  });
+  if (password) form.append("password", password);
+  return form;
+}
+
+// The ML service reports borrower-fixable problems as
+// { detail: { code, message } }. Those need to reach the borrower as guidance
+// they can act on, not as a generic 500.
+const STATEMENT_ERROR_MESSAGES = {
+  password_required: "This statement is locked with a password.",
+  password_incorrect: "That statement password did not work.",
+  no_text_layer: "This statement could not be read.",
+  unreadable_pdf: "This statement could not be opened.",
+  no_transactions: "No transactions could be read from this statement.",
+  unsupported_type: "Unsupported statement file type.",
+};
+
+function statementErrorResponse(error) {
+  const detail = error?.response?.data?.detail;
+  if (!detail || typeof detail !== "object" || !detail.code) return null;
+  return {
+    status: error.response.status === 400 ? 400 : 422,
+    body: {
+      code: detail.code,
+      message: STATEMENT_ERROR_MESSAGES[detail.code] || "This statement could not be processed.",
+      details: detail.message,
+    },
+  };
+}
+
 router.get("/mine", requireAuth, async (req, res) => {
   try {
     const rows = await getStatementsByUser(req.user.id);
@@ -77,12 +115,10 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
 
     const filePath = req.file.path;
     const fileBuffer = fs.readFileSync(filePath);
+    const password =
+      typeof req.body?.password === "string" ? req.body.password.trim() : "";
 
-    const verificationForm = new FormData();
-    verificationForm.append("statement", fileBuffer, {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype,
-    });
+    const verificationForm = statementForm(fileBuffer, req.file, password);
     const verificationResponse = await axios.post(
       `${mlServiceUrl}/verify-statement`,
       verificationForm,
@@ -99,11 +135,7 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
       });
     }
 
-    const featuresForm = new FormData();
-    featuresForm.append("statement", fileBuffer, {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype,
-    });
+    const featuresForm = statementForm(fileBuffer, req.file, password);
     const featuresResponse = await axios.post(
       `${mlServiceUrl}/extract-features`,
       featuresForm,
@@ -143,10 +175,16 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
       history,
     });
   } catch (error) {
-    console.error("Statement upload error:", error.message);
     if (req.file?.path && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
+
+    const known = statementErrorResponse(error);
+    if (known) {
+      return res.status(known.status).json(known.body);
+    }
+
+    console.error("Statement upload error:", error.message);
     return res.status(500).json({
       message: "Failed to process statement upload.",
       details: error.response?.data || error.message,

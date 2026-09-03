@@ -8,7 +8,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import shap
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 app = FastAPI(title='AIRA ML Service', version='1.0.0')
@@ -45,17 +45,162 @@ class PredictionRequest(BaseModel):
     features: dict
 
 
+# --------------------------------------------------------------- pdf unlock
+
+# bKash and Nagad e-statements are delivered as password-protected PDFs whose
+# password is the account holder's own mobile number. Borrowers copy that
+# number in many shapes (+880…, 880…, 017…, with dashes or spaces), so every
+# plausible normalisation is tried before the file is called locked.
+def password_candidates(password):
+    raw = (password or '').strip()
+    digits = re.sub(r'\D', '', raw)
+    candidates = [raw, digits]
+
+    if len(digits) >= 10:
+        last_ten = digits[-10:]
+        candidates.extend([last_ten, '0' + last_ten, '88' + '0' + last_ten, '+880' + last_ten])
+    if len(digits) >= 11:
+        candidates.append(digits[-11:])
+
+    seen = set()
+    ordered = []
+    for candidate in candidates:
+        if candidate and candidate not in seen:
+            seen.add(candidate)
+            ordered.append(candidate)
+    return ordered
+
+
+class StatementError(Exception):
+    """A borrower-fixable problem with an uploaded statement."""
+
+    def __init__(self, code, message, status_code=422):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+
+    def as_http(self):
+        return HTTPException(
+            status_code=self.status_code,
+            detail={'code': self.code, 'message': self.message},
+        )
+
+
+def open_pdf(content, password=None):
+    """Return a decrypted PdfReader, or raise a StatementError the UI can act on."""
+    from pypdf import PdfReader
+    from pypdf.errors import DependencyError, PdfReadError
+
+    try:
+        reader = PdfReader(io.BytesIO(content))
+    except PdfReadError as error:
+        raise StatementError(
+            'unreadable_pdf',
+            f'This PDF could not be opened: {error}',
+        ) from error
+
+    if not reader.is_encrypted:
+        return reader
+
+    # Some statements are only owner-locked: the empty user password opens them
+    # and the borrower never needs to be asked for anything.
+    try:
+        if reader.decrypt(''):
+            return reader
+    except DependencyError as error:
+        raise StatementError(
+            'decryption_unavailable',
+            'This server cannot open AES-protected PDFs. Install the '
+            '`cryptography` package alongside pypdf.',
+            status_code=500,
+        ) from error
+    except (NotImplementedError, PdfReadError):
+        pass
+
+    if not (password or '').strip():
+        raise StatementError(
+            'password_required',
+            'This statement is password protected. bKash and Nagad lock the PDF '
+            'with the mobile number the account belongs to.',
+        )
+
+    for candidate in password_candidates(password):
+        try:
+            if reader.decrypt(candidate):
+                return reader
+        except DependencyError as error:
+            # The `cryptography` package is missing, so AES-protected PDFs
+            # cannot be opened at all. That is a deployment fault, not a wrong
+            # password, and must not be reported to the borrower as one.
+            raise StatementError(
+                'decryption_unavailable',
+                'This server cannot open AES-protected PDFs. Install the '
+                '`cryptography` package alongside pypdf.',
+                status_code=500,
+            ) from error
+        except (NotImplementedError, PdfReadError):
+            # An encryption scheme pypdf cannot handle: no candidate will work.
+            break
+
+    raise StatementError(
+        'password_incorrect',
+        'That password did not unlock the statement. Use the full mobile number '
+        'the bKash or Nagad account is registered with, for example 01XXXXXXXXX.',
+    )
+
+
+def pdf_text(content, password=None):
+    reader = open_pdf(content, password)
+    try:
+        text = '\n'.join(page.extract_text() or '' for page in reader.pages)
+    except Exception as error:  # noqa: BLE001 - surfaced to the borrower as guidance
+        raise StatementError(
+            'unreadable_pdf',
+            f'The statement pages could not be read: {error}',
+        ) from error
+
+    if not text.strip():
+        raise StatementError(
+            'no_text_layer',
+            'No readable text was found in this PDF. A scanned or photographed '
+            'statement cannot be parsed - please download the original PDF from '
+            'your bKash or Nagad app.',
+        )
+    return text
+
+
 @app.get('/health')
 def health():
     return {'status': 'ok', 'service': 'aira-ml-service'}
 
 
 @app.post('/verify-statement')
-async def verify_statement(statement: UploadFile = File(...)):
+async def verify_statement(
+    statement: UploadFile = File(...),
+    password: str = Form(default=''),
+):
     valid = bool(statement.filename.lower().endswith(('.pdf', '.csv', '.xlsx', '.json')))
+    if not valid:
+        return {
+            'valid': False,
+            'details': 'Unsupported file type.',
+            'filename': statement.filename,
+        }
+
+    # A locked PDF is caught here rather than at extraction, so the borrower is
+    # asked for the password before the file is stored anywhere.
+    if statement.filename.lower().endswith('.pdf'):
+        content = await statement.read()
+        await statement.seek(0)
+        try:
+            open_pdf(content, password)
+        except StatementError as error:
+            raise error.as_http() from error
+
     return {
-        'valid': valid,
-        'details': 'Accepted statement format.' if valid else 'Unsupported file type.',
+        'valid': True,
+        'details': 'Accepted statement format.',
         'filename': statement.filename,
     }
 
@@ -186,19 +331,32 @@ def derive_features(text: str, file_size: int, transactions=None):
 
 
 @app.post('/extract-features')
-async def extract_features(statement: UploadFile = File(...)):
-    from pypdf import PdfReader
-
+async def extract_features(
+    statement: UploadFile = File(...),
+    password: str = Form(default=''),
+):
     content = await statement.read()
-    if statement.filename.lower().endswith('.pdf'):
-        reader = PdfReader(io.BytesIO(content))
-        text = '\n'.join(page.extract_text() or '' for page in reader.pages)
-        features = derive_features(text, len(content))
-    elif statement.filename.lower().endswith('.csv'):
-        text = content.decode('utf-8', errors='ignore')
-        features = derive_features(text, len(content), parse_csv(content))
-    else:
-        raise ValueError('Only PDF and CSV statement extraction is currently supported.')
+    try:
+        if statement.filename.lower().endswith('.pdf'):
+            text = pdf_text(content, password)
+            features = derive_features(text, len(content))
+        elif statement.filename.lower().endswith('.csv'):
+            text = content.decode('utf-8', errors='ignore')
+            features = derive_features(text, len(content), parse_csv(content))
+        else:
+            raise StatementError(
+                'unsupported_type',
+                'Only PDF and CSV statement extraction is currently supported.',
+            )
+    except StatementError as error:
+        raise error.as_http() from error
+    except ValueError as error:
+        # derive_features and parse_csv report unparseable statements this way.
+        raise HTTPException(
+            status_code=422,
+            detail={'code': 'no_transactions', 'message': str(error)},
+        ) from error
+
     return {'filename': statement.filename, 'features': features}
 
 
