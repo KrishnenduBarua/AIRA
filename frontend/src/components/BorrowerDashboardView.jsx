@@ -13,8 +13,6 @@ import {
   ProgressBar,
   Skeleton,
   SkeletonList,
-  SplitLayout,
-  Stepper,
   cx,
 } from "../ui/primitives";
 
@@ -47,65 +45,6 @@ function formatDate(value, language) {
     month: "short",
     year: "numeric",
   });
-}
-
-/* ------------------------------------------------------------------ journey */
-
-const JOURNEY_KEYS = ["phone", "identity", "consent", "statement", "profile"];
-
-function JourneyCard({ session, consent, profile }) {
-  const { t } = useLanguage();
-
-  // Phone and identity are complete by definition once signed in.
-  const currentIndex = !consent
-    ? 2
-    : !profile?.hasStatement
-      ? 3
-      : !profile?.hasScore
-        ? 3
-        : 4;
-
-  return (
-    <Card>
-      <CardHeader
-        eyebrow={t("borrower.journey")}
-        description={t("borrower.journeyHelp")}
-      />
-      <div className="mt-4">
-        <Stepper
-          steps={JOURNEY_KEYS.map((key) => ({
-            key,
-            label: t(`auth.steps.${key}`),
-            help: t(`auth.stepHelp.${key}`),
-          }))}
-          currentIndex={currentIndex}
-          label={t("borrower.journey")}
-        />
-      </div>
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <dt className="text-xs font-medium text-slate-500">
-            {t("common.phone")}
-          </dt>
-          <dd className="mt-1 break-words text-sm font-semibold text-slate-900">
-            {session.user.phone}
-          </dd>
-        </div>
-        <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <dt className="text-xs font-medium text-slate-500">
-            {t("auth.steps.identity")}
-          </dt>
-          <dd className="mt-1">
-            <Badge tone={session.user.nidVerified ? "success" : "warning"}>
-              {session.user.nidVerified
-                ? t("common.verified")
-                : t("common.pending")}
-            </Badge>
-          </dd>
-        </div>
-      </dl>
-    </Card>
-  );
 }
 
 /* ------------------------------------------------------------------ consent */
@@ -861,68 +800,63 @@ export default function BorrowerDashboardView({
         />
       </Card>
 
-      <SplitLayout
-        main={
-          <>
-            <TierCard
-              profile={profile}
-              state={profileState}
-              error={profileError}
-              onRetry={onRetryProfile}
-              language={language}
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start">
+        <div className="min-w-0 space-y-4 sm:space-y-6">
+          <TierCard
+            profile={profile}
+            state={profileState}
+            error={profileError}
+            onRetry={onRetryProfile}
+            language={language}
+          />
+          <CategoriesCard profile={profile} />
+          <HistoryCard profile={profile} />
+        </div>
+
+        <div className="min-w-0 space-y-4 sm:space-y-6">
+          <ConsentCard
+            consent={consent}
+            saving={savingConsent}
+            error={consentError}
+            onToggle={onToggleConsent}
+          />
+          <UploadCard
+            consent={consent}
+            fileInputRef={fileInputRef}
+            selectedFile={selectedFile}
+            onChooseFile={onChooseFile}
+            onClearFile={onClearFile}
+            onStartUpload={onStartUpload}
+            onResetUpload={onResetUpload}
+            phase={uploadPhase}
+            progress={uploadProgress}
+            error={uploadError}
+            result={uploadResult}
+          />
+          <Card>
+            <CardHeader
+              eyebrow={t("chat.borrowerTitle")}
+              description={t("borrower.chatIntro")}
             />
-            <CategoriesCard profile={profile} />
-            <HistoryCard profile={profile} />
-            <LenderList
-              lenders={lenders}
-              state={lendersState}
-              error={lendersError}
-              requestingId={requestingId}
-              onRequest={onRequestLender}
-              onRefresh={onRefreshLenders}
-              canApply={consent}
-              language={language}
-            />
-          </>
-        }
-        aside={
-          <>
-            <JourneyCard
-              session={session}
-              consent={consent}
-              profile={profile}
-            />
-            <ConsentCard
-              consent={consent}
-              saving={savingConsent}
-              error={consentError}
-              onToggle={onToggleConsent}
-            />
-            <UploadCard
-              consent={consent}
-              fileInputRef={fileInputRef}
-              selectedFile={selectedFile}
-              onChooseFile={onChooseFile}
-              onClearFile={onClearFile}
-              onStartUpload={onStartUpload}
-              onResetUpload={onResetUpload}
-              phase={uploadPhase}
-              progress={uploadProgress}
-              error={uploadError}
-              result={uploadResult}
-            />
-            <Card>
-              <CardHeader
-                eyebrow={t("chat.borrowerTitle")}
-                description={t("borrower.chatIntro")}
-              />
-              <Button full className="mt-4" onClick={onOpenChat}>
-                {t("borrower.openChat")}
-              </Button>
-            </Card>
-          </>
-        }
-      />
+            <Button full className="mt-4" onClick={onOpenChat}>
+              {t("borrower.openChat")}
+            </Button>
+          </Card>
+        </div>
+
+        <div className="min-w-0 lg:col-span-2">
+          <LenderList
+            lenders={lenders}
+            state={lendersState}
+            error={lendersError}
+            requestingId={requestingId}
+            onRequest={onRequestLender}
+            onRefresh={onRefreshLenders}
+            canApply={consent}
+            language={language}
+          />
+        </div>
+      </div>
     </Page>
   );
 }
