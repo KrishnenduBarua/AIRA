@@ -82,16 +82,26 @@ h4 {
 /* A calm AIRA surface system: seafoam and teal carry the brand while keeping
    long dashboard sessions comfortable and easy to scan. */
 :root {
-  --aira-ink: #173a32;
-  --aira-muted: #5c746b;
-  --aira-page: #eaf6f0;
+  --aira-ink: #10322b;
+  --aira-muted: #506861;
+  --aira-page: #d7ebe2;
   --aira-surface: #fffdfa;
-  --aira-surface-tint: #f1faf5;
-  --aira-border: #cfe5d9;
+  --aira-surface-tint: #e6f3ec;
+  --aira-border: #b9d6c8;
   --aira-teal: #146a55;
   --aira-teal-soft: #d9f2e5;
   --aira-lilac: #edf7f2;
   --aira-amber: #e4a84f;
+
+  /* Accent palette shared with the public landing page, so the signed-in
+     product reads as the same brand rather than a separate muted app. */
+  --aira-navy: #082c3a;
+  --aira-navy-deep: #061f2c;
+  --aira-forest: #0a5148;
+  --aira-teal-bright: #1bb995;
+  --aira-mint: #d8f4e9;
+  --aira-gold: #e5b35d;
+  --aira-violet: #9081ed;
 }
 
 body {
@@ -100,19 +110,69 @@ body {
 
 .aira-app-shell {
   background:
-    radial-gradient(circle at 96% 3%, rgba(194, 235, 214, 0.72), transparent 25rem),
-    radial-gradient(circle at 4% 35%, rgba(225, 243, 234, 0.78), transparent 22rem),
-    linear-gradient(145deg, #f1faf5 0%, var(--aira-page) 55%, #f4faf7 100%);
+    radial-gradient(circle at 96% 3%, rgba(27, 185, 149, 0.16), transparent 26rem),
+    radial-gradient(circle at 4% 38%, rgba(10, 81, 72, 0.09), transparent 24rem),
+    linear-gradient(145deg, #dff0e8 0%, var(--aira-page) 52%, #cfe6dc 100%);
 }
 
 .aira-header {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border-color: var(--aira-border) !important;
+  border-top: 3px solid var(--aira-teal-bright) !important;
   background:
-    linear-gradient(110deg, rgba(255, 253, 250, 0.98), rgba(241, 250, 246, 0.97) 68%, rgba(235, 248, 240, 0.96)) !important;
-  box-shadow: 0 14px 34px rgba(35, 92, 72, 0.1) !important;
+    radial-gradient(circle at 100% 0%, rgba(27, 185, 149, 0.32), transparent 22rem),
+    linear-gradient(110deg, var(--aira-navy-deep), #0a3d4a 60%, var(--aira-forest)) !important;
+  box-shadow: 0 16px 36px rgba(6, 31, 44, 0.24) !important;
+  color: #e9f7f2;
+}
+
+/* Header contents inverted for the navy ground. The extra .aira-app-shell is
+   load-bearing: the slate and brand remaps further down this file are equally
+   specific and !important, and they come later. */
+.aira-app-shell .aira-header {
+  border-right-color: rgba(27, 185, 149, 0.28) !important;
+  border-bottom-color: rgba(27, 185, 149, 0.28) !important;
+  border-left-color: rgba(27, 185, 149, 0.28) !important;
+}
+
+.aira-app-shell .aira-header .text-brand-700 {
+  color: #8ee5c8 !important;
+}
+
+.aira-app-shell .aira-header .text-slate-900 {
+  color: #f4fbf8 !important;
+}
+
+.aira-app-shell .aira-header .text-slate-600 {
+  color: #b9d4ce !important;
+}
+
+.aira-app-shell .aira-header [role="group"] {
+  border-color: rgba(216, 244, 233, 0.22) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+
+.aira-app-shell .aira-header [role="group"] button:hover {
+  background: rgba(27, 185, 149, 0.22) !important;
+  color: #fff !important;
+}
+
+.aira-app-shell .aira-header [role="group"] button[aria-pressed="true"] {
+  background: var(--aira-teal-bright) !important;
+  color: #06222c !important;
+}
+
+.aira-app-shell .aira-header [role="group"] button[aria-pressed="true"]:hover {
+  background: var(--aira-teal-bright) !important;
+  color: #06222c !important;
+}
+
+/* The signed-in role pill. */
+.aira-app-shell .aira-header .bg-brand-50 {
+  border-color: var(--aira-teal-bright) !important;
+  background: #041a23 !important;
+  color: #6fe6bf !important;
 }
 
 .aira-header::before {
@@ -123,7 +183,7 @@ body {
   width: 15rem;
   height: 15rem;
   border-radius: 999px;
-  background: rgba(49, 167, 126, 0.1);
+  background: rgba(27, 185, 149, 0.22);
   content: "";
   filter: blur(2px);
 }
@@ -134,8 +194,59 @@ body {
   bottom: 0;
   left: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--aira-teal) 0%, #32b88f 62%, #9bd9bc 100%);
+  background: linear-gradient(
+    90deg,
+    var(--aira-forest) 0%,
+    var(--aira-teal-bright) 55%,
+    var(--aira-violet) 100%
+  );
   content: "";
+}
+
+/* The header carries a dashboard's navigation on signed-in screens, so it has
+   to wrap rather than overflow once the nav and logout join the row. */
+.aira-header {
+  flex-wrap: wrap;
+}
+
+/* Empty on the landing, auth and borrower screens; no stray gap there. */
+#aira-header-nav:empty,
+#aira-header-actions:empty {
+  display: none;
+}
+
+/* The brand block is a link back to the public site. */
+.aira-header-brand {
+  border-radius: 0.9rem;
+  text-decoration: none;
+  transition: opacity 160ms ease;
+}
+
+.aira-header-brand:hover {
+  opacity: 0.85;
+}
+
+.aira-home-link {
+  display: inline-flex;
+  min-height: 2.4rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(216, 244, 233, 0.24);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 0.45rem 0.8rem;
+  color: #d7efe7;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.aira-home-link:hover {
+  border-color: var(--aira-teal-bright);
+  background: rgba(27, 185, 149, 0.2);
+  color: #fff;
 }
 
 .aira-brand-mark {
@@ -143,21 +254,76 @@ body {
   box-shadow: 0 5px 12px rgba(19, 102, 83, 0.18);
 }
 
-.aira-header .text-brand-700,
 .aira-auth-card > div:first-child .text-brand-700 {
   color: var(--aira-teal) !important;
 }
 
+.aira-chat-window {
+  transition: width 220ms ease, transform 220ms ease;
+}
+
+.aira-chat-window-expanded {
+  left: 0.5rem !important;
+  right: 0.5rem !important;
+  width: auto !important;
+}
+
+.aira-chat-window-expanded [role="log"] {
+  max-height: min(48vh, 34rem) !important;
+  min-height: 16rem;
+}
+
+.aira-chat-size-icon {
+  display: inline-block;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+}
+
+@media (min-width: 640px) {
+  .aira-chat-window-expanded {
+    top: 50%;
+    right: auto !important;
+    bottom: auto !important;
+    left: 50% !important;
+    width: min(48rem, calc(100vw - 3rem)) !important;
+    transform: translate(-50%, -50%);
+  }
+
+  .aira-chat-window-expanded .aira-chat-window-surface {
+    max-height: calc(100vh - 3rem) !important;
+  }
+}
+
 .aira-card {
   border-color: var(--aira-border) !important;
-  background: rgba(255, 253, 250, 0.94) !important;
-  box-shadow: 0 12px 30px rgba(35, 92, 72, 0.075) !important;
-  backdrop-filter: blur(8px);
+  background: linear-gradient(150deg, #fdfffd, #eaf6ef) !important;
+  box-shadow: 0 14px 30px rgba(16, 60, 48, 0.12) !important;
 }
 
 .aira-auth-card {
-  border-top: 3px solid var(--aira-teal) !important;
-  background: linear-gradient(180deg, rgba(255, 253, 250, 0.98), rgba(248, 252, 249, 0.96)) !important;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(27, 185, 149, 0.12), transparent 17rem),
+    linear-gradient(180deg, rgba(255, 253, 250, 0.98), rgba(229, 246, 237, 0.96)) !important;
+}
+
+/* A gradient edge rather than a flat rule, so the first signed-in surface
+   carries the same accent sweep as the landing navigation. */
+.aira-auth-card::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--aira-forest) 0%,
+    var(--aira-teal-bright) 55%,
+    var(--aira-violet) 100%
+  );
+  content: "";
 }
 
 .aira-auth-card [role="tablist"] {
@@ -169,15 +335,15 @@ body {
 }
 
 .aira-app-shell .bg-slate-50 {
-  background-color: var(--aira-surface-tint) !important;
+  background-color: #dcefe5 !important;
 }
 
 .aira-app-shell .bg-slate-100 {
-  background-color: #e4f0ea !important;
+  background-color: #cfe6dc !important;
 }
 
 .aira-app-shell .bg-slate-200 {
-  background-color: #d7e7df !important;
+  background-color: #c1dccf !important;
 }
 
 .aira-app-shell .border-slate-200 {
@@ -185,7 +351,7 @@ body {
 }
 
 .aira-app-shell .border-slate-300 {
-  border-color: #c2d8cd !important;
+  border-color: #a9cbbb !important;
 }
 
 .aira-app-shell .text-slate-900 {
@@ -223,7 +389,7 @@ body {
 }
 
 .aira-app-shell .shadow-soft {
-  box-shadow: 0 12px 30px rgba(35, 92, 72, 0.075);
+  box-shadow: 0 14px 30px rgba(16, 60, 48, 0.12);
 }
 
 @media (max-width: 639px) {
@@ -239,21 +405,43 @@ body {
 .dashboard-page {
   --dashboard-ink: #173a32;
   --dashboard-muted: #5c746b;
-  --dashboard-line: #cfe5d9;
-  --dashboard-soft: #f1faf5;
-  --dashboard-accent: #146a55;
+  --dashboard-line: #b9d6c8;
+  --dashboard-soft: #d6efe1;
+  --dashboard-accent: #0f5a48;
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(27, 185, 149, 0.18), transparent 24rem),
+    linear-gradient(135deg, rgba(196, 231, 216, 0.66), rgba(232, 245, 238, 0.42));
+  padding: 0.2rem;
 }
 
 .dashboard-page .aira-card {
   border-radius: 1.25rem;
+  background: linear-gradient(145deg, #fbfefc, #dff0e7) !important;
 }
 
+.dashboard-page .dashboard-stat {
+  background: linear-gradient(145deg, #fdfffd, #d8eee3) !important;
+}
+
+/* The one deeply coloured surface per page. It reuses the landing hero's navy
+   and teal glow so a borrower arriving from the public site lands somewhere
+   that clearly belongs to the same product, while every card below it stays
+   light and quiet. */
 .dashboard-hero {
   position: relative;
   overflow: hidden;
-  border-top: 4px solid var(--dashboard-accent) !important;
+  border: 0 !important;
+  border-top: 3px solid var(--aira-teal-bright) !important;
   background:
-    linear-gradient(135deg, rgba(255, 253, 250, 0.98), rgba(239, 250, 244, 0.94)) !important;
+    radial-gradient(circle at 100% 0%, rgba(27, 185, 149, 0.42), transparent 26rem),
+    linear-gradient(
+      125deg,
+      var(--aira-navy-deep) 0%,
+      #0a3d4a 56%,
+      var(--aira-forest) 100%
+    ) !important;
+  box-shadow: 0 16px 38px rgba(8, 44, 58, 0.22) !important;
 }
 
 .dashboard-hero::after {
@@ -263,7 +451,7 @@ body {
   width: 17rem;
   height: 17rem;
   border-radius: 50%;
-  background: rgba(52, 185, 145, 0.09);
+  background: rgba(27, 185, 149, 0.12);
   content: "";
 }
 
@@ -272,17 +460,44 @@ body {
   z-index: 1;
 }
 
+/* Text tones inside the hero, overriding the light-surface defaults the rest
+   of the shell applies. */
+/* A lighter tint than the landing teal: the accent has to clear 4.5:1 against
+   the pale end of the hero gradient, not only the navy end. */
+.aira-app-shell .dashboard-hero .text-brand-700 {
+  color: #5fd7b6 !important;
+}
+
+.aira-app-shell .dashboard-hero .text-slate-900 {
+  color: #f3fbf8 !important;
+}
+
+.aira-app-shell .dashboard-hero .text-slate-600 {
+  color: #b6d3cd !important;
+}
+
+/* The logout action sits on navy, so the light-surface button styling would
+   drop a heavy white block into the hero. */
+.dashboard-hero button {
+  border-color: rgba(216, 244, 233, 0.34) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #e6f6f0 !important;
+}
+
+.dashboard-hero button:hover {
+  border-color: var(--aira-teal-bright) !important;
+  background: rgba(27, 185, 149, 0.2) !important;
+  color: #fff !important;
+}
+
 .dashboard-summary {
   display: grid;
   gap: 0.85rem;
 }
 
-.borrower-summary {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
+.borrower-summary,
 .lender-summary {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr));
 }
 
 .dashboard-stat {
@@ -322,6 +537,21 @@ body {
   font-size: 1.05rem;
   font-weight: 800;
   line-height: 1.25;
+}
+
+.borrower-summary .dashboard-stat:nth-child(1) .dashboard-stat-icon {
+  background: var(--aira-mint);
+  color: #0d7a62;
+}
+
+.borrower-summary .dashboard-stat:nth-child(2) .dashboard-stat-icon {
+  background: #e9e5fb;
+  color: #5d4fb0;
+}
+
+.borrower-summary .dashboard-stat:nth-child(3) .dashboard-stat-icon {
+  background: #fbeed5;
+  color: #8a5d16;
 }
 
 .lender-summary .dashboard-stat:nth-child(1) .dashboard-stat-icon {
@@ -370,7 +600,7 @@ body {
 
 .dashboard-section-kicker {
   margin: 0 !important;
-  color: var(--dashboard-accent) !important;
+  color: var(--aira-forest) !important;
   font-size: 0.68rem !important;
   font-weight: 800 !important;
   letter-spacing: 0.16em;
@@ -386,6 +616,10 @@ body {
   height: 100%;
 }
 
+.borrower-upload-card {
+  border-top: 3px solid var(--aira-gold) !important;
+}
+
 .borrower-consent-card {
   background: linear-gradient(135deg, rgba(244, 251, 247, 0.94), rgba(255, 253, 250, 0.94)) !important;
 }
@@ -399,7 +633,7 @@ body {
 }
 
 .borrower-lenders-card {
-  border-top: 3px solid #35aa84 !important;
+  border-top: 3px solid var(--aira-teal-bright) !important;
 }
 
 .borrower-lenders-card ul {
@@ -408,30 +642,293 @@ body {
 
 .borrower-lenders-card li {
   height: 100%;
-  background: rgba(241, 250, 245, 0.72);
+  background: linear-gradient(150deg, #f6fdf9, #d9efe4);
 }
 
 .lender-workspace-grid > .grid {
   align-items: start;
 }
 
+.lender-workspace-shell {
+  display: block;
+}
+
+.lender-workspace-content {
+  min-width: 0;
+}
+
+.lender-navbar-nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border: 1px solid rgba(216, 244, 233, 0.18);
+  border-radius: 0.95rem;
+  background: rgba(4, 22, 31, 0.4);
+}
+
+.lender-navbar-link {
+  display: inline-flex;
+  min-height: 2.4rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.42rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  background: transparent;
+  padding: 0.5rem 0.7rem;
+  color: #b8d9cf;
+  font-size: 0.77rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lender-navbar-link:hover,
+.lender-navbar-link.is-active {
+  border-color: rgba(95, 215, 182, 0.34);
+  background: rgba(27, 185, 149, 0.2);
+  color: #fff;
+}
+
+.lender-navbar-icon {
+  color: #8ee5c8;
+  font-size: 0.9rem;
+}
+
+.lender-navbar-count {
+  min-width: 1.2rem;
+  border-radius: 999px;
+  background: #f2bb68;
+  padding: 0.08rem 0.32rem;
+  color: #173a32;
+  font-size: 0.65rem;
+  text-align: center;
+}
+
+.lender-navbar-logout {
+  display: inline-flex;
+  min-height: 2.4rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(216, 244, 233, 0.24);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 0.5rem 0.75rem;
+  color: #e8f8f1;
+  font-size: 0.77rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lender-navbar-logout:hover {
+  border-color: #5fd7b6;
+  background: rgba(27, 185, 149, 0.2);
+}
+
+.lender-overview-grid {
+  display: grid;
+  align-items: start;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.65fr) minmax(19rem, 0.9fr);
+}
+
+.lender-review-page .lender-review-layout {
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lender-fraud-only-grid {
+  display: grid;
+  align-items: start;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lender-fraud-action-stack {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+.lender-checklist-card {
+  border-top: 3px solid var(--aira-gold) !important;
+}
+
+.lender-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  border: 1px solid var(--aira-border);
+  border-radius: 0.75rem;
+  background: linear-gradient(150deg, #f6fdf9, #dcf0e6);
+  padding: 0.7rem 0.75rem;
+  color: var(--dashboard-ink);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.lender-checklist-item input {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  margin-top: 0.12rem;
+  accent-color: var(--aira-teal);
+}
+
+.lender-compact-score {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid #b9e8d2;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #e5f8ee, #f9fcf8);
+  padding: 1rem;
+}
+
+.lender-compact-score-label {
+  margin: 0;
+  color: var(--dashboard-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.lender-compact-score-value {
+  margin: 0.1rem 0 0;
+  color: var(--dashboard-ink);
+  font-size: 2.15rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.lender-compact-score-value span {
+  margin-left: 0.15rem;
+  color: var(--dashboard-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.lender-compact-score-link {
+  justify-self: start;
+  padding: 0.1rem 0;
+}
+
+.lender-lookup-page-card,
+.lender-fraud-queue-card,
+.lender-reports-card {
+  border-top: 3px solid var(--aira-violet) !important;
+}
+
+.lender-referral-row {
+  display: flex;
+  min-height: 4.7rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  border: 1px solid var(--aira-border);
+  border-radius: 0.9rem;
+  background: rgba(241, 250, 245, 0.82);
+  padding: 0.85rem 1rem;
+  text-align: left;
+  transition: 160ms ease;
+}
+
+.lender-referral-row:hover {
+  border-color: var(--aira-teal-bright);
+  background: #e4f6ec;
+}
+
+.lender-report-stat {
+  border: 1px solid var(--aira-border);
+  border-radius: 1rem;
+  background: rgba(241, 250, 245, 0.86);
+  padding: 1rem;
+}
+
+.lender-report-stat p,
+.lender-report-stat strong {
+  margin: 0;
+}
+
+.lender-report-stat p {
+  color: var(--dashboard-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.lender-report-stat strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--dashboard-ink);
+  font-size: 1.7rem;
+}
+
+.lender-report-stat.is-warning { border-top: 3px solid var(--aira-gold); }
+.lender-report-stat.is-success { border-top: 3px solid var(--aira-teal-bright); }
+.lender-report-stat.is-neutral { border-top: 3px solid #9cafa7; }
+.lender-report-stat.is-brand { border-top: 3px solid var(--aira-violet); }
+
 .lender-inbox-card {
-  border-top: 3px solid #35aa84 !important;
+  border-top: 3px solid var(--aira-teal-bright) !important;
 }
 
 .lender-lookup-card {
-  border-top: 3px solid #8d7bd8 !important;
+  border-top: 3px solid var(--aira-violet) !important;
   background: linear-gradient(160deg, rgba(249, 247, 255, 0.97), rgba(255, 253, 250, 0.95)) !important;
 }
 
 .lender-request-card {
   min-height: 8.5rem;
-  background: rgba(241, 250, 245, 0.72) !important;
+  background: linear-gradient(150deg, #f6fdf9, #d9efe4) !important;
 }
 
 .lender-request-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 18px rgba(35, 92, 72, 0.08);
+}
+
+.aira-collapse-toggle {
+  display: inline-flex;
+  min-height: 2.1rem;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--aira-border);
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.3rem 0.7rem;
+  color: var(--dashboard-accent, #0f5a48);
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.aira-collapse-toggle:hover {
+  border-color: #7cc3a9;
+  background: #e4f4ec;
+}
+
+.aira-details-cta {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--dashboard-accent, #146a55);
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.aira-details-cta > span {
+  font-size: 1rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.lender-request-card:hover .aira-details-cta > span,
+.lender-referral-row:hover .aira-details-cta > span,
+.admin-borrower-card:hover .aira-details-cta > span {
+  transform: translateX(3px);
 }
 
 .lender-review-page > .aira-card,
@@ -448,19 +945,23 @@ body {
   .lender-workspace-grid > .grid {
     grid-template-columns: minmax(0, 1.7fr) minmax(19rem, 0.75fr);
   }
+
+  .lender-review-page .lender-review-layout {
+    grid-template-columns: minmax(0, 1.55fr) minmax(21rem, 1fr);
+  }
+
+  .lender-fraud-page .lender-fraud-only-grid {
+    grid-template-columns: minmax(0, 1.55fr) minmax(21rem, 1fr);
+  }
 }
 
-@media (max-width: 800px) {
-  .lender-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 1023px) {
+  .lender-overview-grid {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 639px) {
-  .borrower-summary {
-    grid-template-columns: 1fr;
-  }
-
   .dashboard-stat {
     min-height: 5.6rem;
   }
@@ -486,7 +987,7 @@ body {
   --landing-mint: #d8f4e9;
   --landing-gold: #e5b35d;
   --landing-lilac: #9081ed;
-  --landing-line: #dbeae4;
+  --landing-line: #c3ddd1;
   min-height: 100vh;
   overflow: hidden;
   background: #f7fbf9;
@@ -549,6 +1050,7 @@ body {
 
 .landing-nav nav a,
 .landing-language button {
+  white-space: nowrap;
   color: #b9d4ce;
   font-size: 0.82rem;
   font-weight: 600;
@@ -606,6 +1108,7 @@ body {
 .landing-nav-cta {
   background: linear-gradient(100deg, var(--landing-teal), #7f71ed);
   color: #071e29;
+  white-space: nowrap;
 }
 
 .landing-nav-cta:hover,
@@ -626,7 +1129,7 @@ body {
   max-width: none;
   margin: 0;
   display: grid;
-  grid-template-columns: minmax(0, 0.91fr) minmax(440px, 1.09fr);
+  grid-template-columns: minmax(0, 0.91fr) minmax(min(100%, 26rem), 1.09fr);
   align-items: center;
   gap: 58px;
   min-height: 650px;
@@ -988,7 +1491,7 @@ body {
 
 .signal-section {
   padding: 110px 0;
-  background: #edf8f3;
+  background: linear-gradient(180deg, #e2f2eb, #eef8f4);
 }
 
 .signal-layout,
@@ -1030,7 +1533,7 @@ body {
 .signal-stats {
   display: grid;
   gap: 0;
-  border-top: 1px solid #cfe4da;
+  border-top: 1px solid #b9d6c8;
 }
 
 .signal-stat {
@@ -1038,7 +1541,7 @@ body {
   grid-template-columns: 60px 1fr;
   gap: 20px;
   padding: 24px 0;
-  border-bottom: 1px solid #cfe4da;
+  border-bottom: 1px solid #b9d6c8;
 }
 
 .signal-stat > span {
@@ -1089,7 +1592,7 @@ body {
 
 .step-cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18.5rem), 1fr));
   gap: 18px;
 }
 
@@ -1098,11 +1601,15 @@ body {
   min-height: 300px;
   padding: 27px;
   overflow: hidden;
-  border: 1px solid var(--landing-line);
+  border: 1px solid #c8e0d6;
+  border-top: 3px solid var(--landing-teal);
   border-radius: 22px;
-  background: #fff;
-  box-shadow: 0 16px 34px rgba(28, 82, 66, 0.07);
+  background: linear-gradient(160deg, #fdfffe 0%, #e6f5ee 100%);
+  box-shadow: 0 18px 36px rgba(16, 60, 48, 0.12);
 }
+
+.step-card-2 { border-top-color: var(--landing-lilac); }
+.step-card-3 { border-top-color: var(--landing-gold); }
 
 .step-card::after {
   position: absolute;
@@ -1111,12 +1618,12 @@ body {
   width: 150px;
   height: 150px;
   border-radius: 50%;
-  background: rgba(27, 185, 149, 0.08);
+  background: rgba(27, 185, 149, 0.16);
   content: "";
 }
 
-.step-card-2::after { background: rgba(144, 129, 237, 0.1); }
-.step-card-3::after { background: rgba(229, 179, 93, 0.12); }
+.step-card-2::after { background: rgba(144, 129, 237, 0.18); }
+.step-card-3::after { background: rgba(229, 179, 93, 0.22); }
 
 .step-number {
   color: var(--landing-teal);
@@ -1223,10 +1730,10 @@ body {
 .video-card {
   display: block;
   padding: 12px;
-  border: 1px solid #d5e6df;
+  border: 1px solid #c8e0d6;
   border-radius: 27px;
-  background: #fff;
-  box-shadow: 0 20px 44px rgba(22, 79, 62, 0.1);
+  background: linear-gradient(160deg, #fdfffe, #e4f4ed);
+  box-shadow: 0 22px 46px rgba(16, 60, 48, 0.16);
   transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
@@ -1357,7 +1864,7 @@ body {
 
 .team-section {
   padding: 120px 0;
-  background: #eef8f4;
+  background: linear-gradient(180deg, #e2f2eb, #f2faf7);
 }
 
 .team-heading {
@@ -1366,30 +1873,34 @@ body {
 
 .team-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.75rem), 1fr));
   gap: 14px;
 }
 
 .team-card {
   min-width: 0;
   padding: 18px;
-  border: 1px solid #d3e8df;
+  border: 1px solid #c1ddd1;
+  border-top: 3px solid var(--landing-teal);
   border-radius: 19px;
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 10px 24px rgba(30, 85, 69, 0.05);
+  background: linear-gradient(160deg, #fdfffe, #e4f4ed);
+  box-shadow: 0 14px 28px rgba(16, 60, 48, 0.12);
 }
 
 .team-photo {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
-  border: 1px dashed #9ec8b8;
+  border: 1px solid #cfe6dc;
   border-radius: 14px;
   background: linear-gradient(145deg, #f8fcfa, #e1f1ea);
-  color: #76a596;
-  font-size: 0.7rem;
-  text-align: center;
+}
+
+.team-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
 }
 
 .team-index {
@@ -1406,6 +1917,19 @@ body {
   color: var(--landing-ink);
   font-size: 0.88rem;
   line-height: 1.3;
+}
+
+.team-role {
+  margin-top: 2px !important;
+  color: var(--landing-forest) !important;
+  font-size: 0.8rem !important;
+  font-weight: 700;
+  line-height: 1.45 !important;
+}
+
+.team-task {
+  margin-top: 4px !important;
+  font-size: 0.78rem !important;
 }
 
 .faq-section {
@@ -1438,6 +1962,46 @@ body {
 .faq-list summary span { color: var(--landing-teal); font-size: 1.5rem; font-weight: 400; }
 .faq-list details[open] summary span { transform: rotate(45deg); }
 .faq-list details p { max-width: 620px; margin: -5px 0 21px; color: var(--landing-muted); font-size: 0.9rem; line-height: 1.7; }
+
+.footer-portals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  padding: 26px 0 4px;
+  border-top: 1px solid rgba(216, 244, 233, 0.12);
+  color: #8fb8b0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.footer-portals nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.footer-portals a {
+  display: inline-flex;
+  min-height: 2.4rem;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(216, 244, 233, 0.2);
+  border-radius: 999px;
+  padding: 8px 16px;
+  color: #e4f6f0;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.footer-portals a:hover {
+  border-color: var(--landing-teal);
+  background: rgba(27, 185, 149, 0.16);
+}
 
 .landing-footer {
   background: var(--landing-navy-deep);
@@ -1473,12 +2037,20 @@ body {
 }
 
 @media (max-width: 1000px) {
-  .landing-nav nav { gap: 14px; }
+  .landing-nav { flex-wrap: wrap; gap: 16px; }
+  .landing-nav nav {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    gap: 14px;
+    margin-left: 0;
+    padding-top: 4px;
+  }
+  .landing-nav-actions { margin-left: auto; }
   .landing-hero { grid-template-columns: 1fr; gap: 45px; }
   .hero-copy { max-width: 700px; }
   .hero-art { min-height: 470px; }
   .signal-layout, .feature-layout, .faq-section, .demo-section { gap: 45px; }
-  .team-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 760px) {
@@ -1495,10 +2067,8 @@ body {
   .signal-section, .landing-section, .feature-section, .demo-section, .team-section, .faq-section { padding-top: 82px; padding-bottom: 82px; }
   .signal-layout, .feature-layout, .faq-section, .demo-section { grid-template-columns: 1fr; }
   .feature-copy { position: static; }
-  .step-cards { grid-template-columns: 1fr; }
   .step-card { min-height: 0; }
   .step-icon { margin-top: 35px; }
-  .team-grid { grid-template-columns: repeat(2, 1fr); }
   .footer-top { flex-wrap: wrap; padding-top: 38px; padding-bottom: 38px; }
   .footer-top p { order: 3; flex-basis: 100%; }
 }
@@ -1527,5 +2097,287 @@ body {
   .landing-page *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* -------------------------------------------------------------------------
+   Opening sequence — brand sting, three beats, title card. Sizing is fluid so
+   the same timeline reads on a 320px phone and a wide desktop.
+   ------------------------------------------------------------------------- */
+
+body.intro-open {
+  overflow: hidden;
+}
+
+.intro-overlay {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  display: grid;
+  overflow: hidden;
+  grid-template-rows: 1fr auto;
+  background:
+    radial-gradient(circle at 82% 8%, rgba(27, 185, 149, 0.28), transparent 32rem),
+    radial-gradient(circle at 12% 88%, rgba(144, 129, 237, 0.2), transparent 30rem),
+    linear-gradient(150deg, #061f2c 0%, #082c3a 52%, #0a5148 100%);
+  color: #eaf9f3;
+  transition: opacity 460ms ease, transform 460ms ease;
+}
+
+.intro-overlay.is-leaving {
+  opacity: 0;
+  transform: scale(1.03);
+  pointer-events: none;
+}
+
+.intro-glow,
+.intro-grid {
+  position: absolute;
+  pointer-events: none;
+}
+
+.intro-glow {
+  top: -18%;
+  right: -12%;
+  width: min(38rem, 90vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(27, 185, 149, 0.3), transparent 68%);
+  animation: intro-breathe 9s ease-in-out infinite;
+}
+
+.intro-grid {
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(216, 244, 233, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(216, 244, 233, 0.05) 1px, transparent 1px);
+  background-size: 4.5rem 4.5rem;
+  mask-image: radial-gradient(circle at 50% 45%, #000, transparent 72%);
+}
+
+.intro-stage {
+  position: relative;
+  display: grid;
+  width: min(46rem, calc(100% - 2.5rem));
+  margin: 0 auto;
+  padding: 2rem 0;
+  place-items: center;
+}
+
+/* Every act shares one cell, so a change of phase is a cross-fade rather than
+   a reflow of the page. */
+.intro-act {
+  display: flex;
+  max-width: 34rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  grid-area: 1 / 1;
+  opacity: 0;
+  text-align: center;
+  transform: translateY(0.9rem);
+  transition: opacity 620ms ease, transform 620ms ease;
+  visibility: hidden;
+}
+
+.intro-act.is-active {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+}
+
+.intro-mark {
+  position: relative;
+  display: grid;
+  width: clamp(5.5rem, 18vw, 8.5rem);
+  aspect-ratio: 1;
+  border: 3px solid rgba(27, 185, 149, 0.55);
+  border-radius: 1.9rem;
+  color: #eafaf4;
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  font-size: clamp(2.6rem, 9vw, 4.2rem);
+  font-weight: 700;
+  place-items: center;
+  animation: intro-rise 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.intro-mark i {
+  position: absolute;
+  right: 1.1rem;
+  bottom: 1.35rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--aira-gold);
+}
+
+.intro-studio {
+  margin: 0;
+  color: #8fd8c3;
+  font-size: clamp(0.68rem, 2.4vw, 0.8rem);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.intro-beat-icon {
+  display: grid;
+  width: clamp(3.2rem, 11vw, 4.2rem);
+  aspect-ratio: 1;
+  border: 1px solid rgba(27, 185, 149, 0.4);
+  border-radius: 1.2rem;
+  background: rgba(27, 185, 149, 0.14);
+  color: #7fe3c4;
+  font-size: clamp(1.3rem, 4.5vw, 1.7rem);
+  place-items: center;
+}
+
+.intro-act h2 {
+  margin: 0.4rem 0 0;
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  font-size: clamp(1.6rem, 6vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.intro-act p:not(.intro-studio):not(.intro-tagline) {
+  max-width: 26rem;
+  margin: 0;
+  color: #a9cfc6;
+  font-size: clamp(0.9rem, 3.2vw, 1.05rem);
+  line-height: 1.6;
+}
+
+.intro-wordmark {
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  font-size: clamp(3rem, 15vw, 6rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  background: linear-gradient(100deg, #f3fbf8 10%, #7fe3c4 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.intro-tagline {
+  max-width: 22rem;
+  margin: 0;
+  color: #bfe3d9;
+  font-size: clamp(0.95rem, 3.4vw, 1.15rem);
+  line-height: 1.5;
+}
+
+.intro-start {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 0.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(100deg, var(--aira-teal-bright), #7f71ed);
+  padding: 0.75rem 1.5rem;
+  color: #05202b;
+  font-size: clamp(0.85rem, 3vw, 0.95rem);
+  font-weight: 800;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.intro-start:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(27, 185, 149, 0.3);
+}
+
+.intro-skip {
+  position: absolute;
+  top: max(1rem, env(safe-area-inset-top));
+  right: 1rem;
+  display: inline-flex;
+  min-height: 2.4rem;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(216, 244, 233, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 0.45rem 0.95rem;
+  color: #d7efe7;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.intro-skip:hover {
+  border-color: var(--aira-teal-bright);
+  background: rgba(27, 185, 149, 0.2);
+  color: #fff;
+}
+
+.intro-progress {
+  position: relative;
+  height: 3px;
+  background: rgba(216, 244, 233, 0.12);
+}
+
+.intro-progress i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--aira-teal-bright), #7f71ed);
+  transition: width 620ms ease;
+}
+
+@keyframes intro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.2rem) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes intro-breathe {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-glow {
+    animation: none;
+  }
+}
+
+
+/* Reveal-on-scroll for the landing page. The JS observer adds .is-revealed as
+   each element enters the viewport; --reveal-delay staggers siblings. */
+.landing-page [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 1.4rem, 0);
+  transition:
+    opacity 720ms cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms),
+    transform 720ms cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.landing-page [data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-page [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }

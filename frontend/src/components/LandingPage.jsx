@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLanguage } from "../i18n";
 
 // The exact demo URL was not present in the repository, so this keeps the
@@ -72,14 +73,20 @@ const CONTENT = {
       eyebrow: "The people behind AIRA",
       title: "Built with care and curiosity.",
       body: "Our five-member team is working to make financial opportunity easier to reach and easier to understand.",
-      photo: "Photo coming soon",
+      roles: [
+        ["UI/UX Designer & Frontend Developer", "Design and build every screen"],
+        ["Backend Developer", "Server, database and APIs"],
+        ["Machine Learning Engineer", "AI scoring model"],
+        ["Blockchain Developer", "Smart contract and chain connection"],
+        ["AI Integration Engineer & Technical Lead", "Chatbot, NID system and documentation"],
+      ],
     },
     faq: {
       eyebrow: "Questions, answered",
       title: "A thoughtful place to start.",
       items: [
         ["Is AIRA a lender?", "No. AIRA creates an explainable trust profile. Lending organisations make their own decisions."],
-        ["What data does AIRA use?", "Only the information you choose to provide, such as identity details and a mobile-money or bank statement."],
+        ["What data does AIRA use?", "Only the information you choose to provide, such as identity details and your bKash or Nagad statement."],
         ["Can I control what is shared?", "Yes. Consent is explicit, and you can withdraw it from your dashboard."],
       ],
     },
@@ -87,6 +94,10 @@ const CONTENT = {
       line: "Trust should be understandable.",
       enter: "Go to the AIRA portal",
       rights: "AIRA · Alternative Credit Intelligence",
+      portals: "Open a portal",
+      borrower: "Borrower",
+      lender: "Lender",
+      admin: "Admin",
     },
   },
   bn: {
@@ -155,14 +166,20 @@ const CONTENT = {
       eyebrow: "AIRA-র পেছনের মানুষগুলো",
       title: "যত্ন ও কৌতূহল নিয়ে তৈরি।",
       body: "আমাদের পাঁচ সদস্যের দল আর্থিক সুযোগকে আরও সহজলভ্য ও বোধগম্য করতে কাজ করছে।",
-      photo: "ছবি শীঘ্রই যুক্ত হবে",
+      roles: [
+        ["ইউআই/ইউএক্স ডিজাইনার ও ফ্রন্টএন্ড ডেভেলপার", "সব স্ক্রিনের ডিজাইন ও নির্মাণ"],
+        ["ব্যাকএন্ড ডেভেলপার", "সার্ভার, ডেটাবেস ও এপিআই"],
+        ["মেশিন লার্নিং ইঞ্জিনিয়ার", "এআই স্কোরিং মডেল"],
+        ["ব্লকচেইন ডেভেলপার", "স্মার্ট কনট্রাক্ট ও চেইন সংযোগ"],
+        ["এআই ইন্টিগ্রেশন ইঞ্জিনিয়ার ও টেকনিক্যাল লিড", "চ্যাটবট, এনআইডি সিস্টেম ও ডকুমেন্টেশন"],
+      ],
     },
     faq: {
       eyebrow: "আপনার প্রশ্নের উত্তর",
       title: "শুরু করার একটি চিন্তাশীল জায়গা।",
       items: [
         ["AIRA কি ঋণদাতা?", "না। AIRA একটি ব্যাখ্যাযোগ্য ট্রাস্ট প্রোফাইল তৈরি করে। ঋণদাতা প্রতিষ্ঠান নিজের সিদ্ধান্ত নেয়।"],
-        ["AIRA কোন তথ্য ব্যবহার করে?", "আপনি যে তথ্য দিতে চান, যেমন পরিচয়ের তথ্য এবং মোবাইল-মানি বা ব্যাংক স্টেটমেন্ট।"],
+        ["AIRA কোন তথ্য ব্যবহার করে?", "আপনি যে তথ্য দিতে চান, যেমন পরিচয়ের তথ্য এবং আপনার বিকাশ বা নগদ স্টেটমেন্ট।"],
         ["কী শেয়ার হবে তা কি আমি নিয়ন্ত্রণ করতে পারি?", "হ্যাঁ। সম্মতি স্পষ্টভাবে নেওয়া হয় এবং ড্যাশবোর্ড থেকে তা প্রত্যাহার করা যায়।"],
       ],
     },
@@ -170,17 +187,70 @@ const CONTENT = {
       line: "বিশ্বাস বোঝার মতো হওয়া উচিত।",
       enter: "AIRA পোর্টালে যান",
       rights: "AIRA · বিকল্প ক্রেডিট ইন্টেলিজেন্স",
+      portals: "পোর্টাল খুলুন",
+      borrower: "ঋণগ্রহীতা",
+      lender: "ঋণদাতা",
+      admin: "অ্যাডমিন",
     },
   },
 };
 
+// Order matches copy.team.roles in CONTENT.
 const TEAM = [
-  "Mahashweta Manjari Barua",
-  "Dipannita Paul Orni",
-  "Jannatul Ferdaus",
-  "Krishnendu Barua",
-  "Fariha Rayhan Mim",
+  { name: "Fariha Rayhan Mim", photo: "/team/fariha-rayhan-mim.jpg" },
+  { name: "Mahashweta Manjari Barua", photo: "/team/mahashweta-manjari-barua.jpg" },
+  { name: "Dipannita Paul Orni", photo: "/team/dipannita-paul-orni.jpg" },
+  { name: "Jannatul Ferdaus", photo: "/team/jannatul-ferdaus.jpg" },
+  { name: "Krishnendu Barua", photo: "/team/krishnendu-barua.jpg" },
 ];
+
+function useScrollReveal(ready) {
+  useEffect(() => {
+    if (!ready) return undefined;
+    const targets = Array.from(document.querySelectorAll("[data-reveal]"));
+    if (!targets.length) return undefined;
+
+    const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (calm || typeof IntersectionObserver === "undefined") {
+      // No motion budget, or no observer: show everything immediately.
+      targets.forEach((node) => node.classList.add("is-revealed"));
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-revealed");
+          observer.unobserve(entry.target);
+        });
+      },
+      { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
+    );
+
+    targets.forEach((node) => observer.observe(node));
+
+    // Anything already on screen when the observer attaches is revealed on the
+    // next frame. The observer alone is not enough here: it can settle a beat
+    // late, which would leave the hero blank for the first moments after the
+    // intro hands over — exactly when the page should be assembling itself.
+    const first = setTimeout(() => {
+      const fold = window.innerHeight * 0.94;
+      targets.forEach((node) => {
+        const box = node.getBoundingClientRect();
+        if (box.top < fold && box.bottom > 0) {
+          node.classList.add("is-revealed");
+          observer.unobserve(node);
+        }
+      });
+    });
+
+    return () => {
+      clearTimeout(first);
+      observer.disconnect();
+    };
+  }, [ready]);
+}
 
 function LanguageSwitch({ language, setLanguage }) {
   return (
@@ -249,9 +319,11 @@ function ProfilePreview({ copy }) {
   );
 }
 
-export default function LandingPage() {
+export default function LandingPage({ revealReady = true }) {
   const { language, setLanguage } = useLanguage();
   const copy = CONTENT[language] || CONTENT.en;
+
+  useScrollReveal(revealReady);
 
   return (
     <div className="landing-page" id="top">
@@ -272,16 +344,20 @@ export default function LandingPage() {
       <main>
         <section className="landing-hero">
           <div className="hero-copy">
-            <p className="landing-eyebrow"><span /> {copy.hero.eyebrow}</p>
-            <h1>{copy.hero.title}</h1>
-            <p className="hero-body">{copy.hero.body}</p>
-            <div className="hero-actions">
+            <p className="landing-eyebrow" data-reveal><span /> {copy.hero.eyebrow}</p>
+            <h1 data-reveal style={{ "--reveal-delay": "90ms" }}>{copy.hero.title}</h1>
+            <p className="hero-body" data-reveal style={{ "--reveal-delay": "180ms" }}>
+              {copy.hero.body}
+            </p>
+            <div className="hero-actions" data-reveal style={{ "--reveal-delay": "270ms" }}>
               <a className="landing-button landing-button-primary" href="/app">
                 {copy.hero.primary}<span>↗</span>
               </a>
               <a className="landing-text-link" href="#demo">{copy.hero.secondary}<span>↓</span></a>
             </div>
-            <p className="hero-note"><span>✦</span>{copy.hero.note}</p>
+            <p className="hero-note" data-reveal style={{ "--reveal-delay": "360ms" }}>
+              <span>✦</span>{copy.hero.note}
+            </p>
           </div>
           <div className="hero-art" aria-hidden="true">
             <div className="hero-orbit hero-orbit-one" />
@@ -291,20 +367,27 @@ export default function LandingPage() {
             <div className="hero-orb hero-orb-one" />
             <div className="hero-orb hero-orb-two" />
             <div className="hero-orb hero-orb-three" />
-            <ProfilePreview copy={copy} />
+            <div data-reveal style={{ "--reveal-delay": "260ms" }}>
+              <ProfilePreview copy={copy} />
+            </div>
           </div>
         </section>
 
         <section className="signal-section" id="why-aira">
           <div className="landing-container signal-layout">
-            <div className="section-copy">
+            <div className="section-copy" data-reveal>
               <p className="landing-eyebrow"><span /> {copy.signal.eyebrow}</p>
               <h2>{copy.signal.title}</h2>
               <p>{copy.signal.body}</p>
             </div>
             <div className="signal-stats">
-              {copy.signal.stats.map(([number, title, body]) => (
-                <article key={number} className="signal-stat">
+              {copy.signal.stats.map(([number, title, body], index) => (
+                <article
+                  key={number}
+                  className="signal-stat"
+                  data-reveal
+                  style={{ "--reveal-delay": `${index * 110}ms` }}
+                >
                   <span>{number}</span>
                   <div><h3>{title}</h3><p>{body}</p></div>
                 </article>
@@ -314,13 +397,18 @@ export default function LandingPage() {
         </section>
 
         <section className="landing-section landing-container" id="how-it-works">
-          <div className="centered-heading">
+          <div className="centered-heading" data-reveal>
             <p className="landing-eyebrow"><span /> {copy.how.eyebrow}</p>
             <h2>{copy.how.title}</h2>
           </div>
           <div className="step-cards">
             {copy.how.cards.map(([number, title, body], index) => (
-              <article className={`step-card step-card-${index + 1}`} key={number}>
+              <article
+                className={`step-card step-card-${index + 1}`}
+                key={number}
+                data-reveal
+                style={{ "--reveal-delay": `${index * 120}ms` }}
+              >
                 <div className="step-number">{number}</div>
                 <div className="step-icon" aria-hidden="true">{index === 0 ? "↗" : index === 1 ? "⌁" : "◌"}</div>
                 <h3>{title}</h3>
@@ -332,15 +420,20 @@ export default function LandingPage() {
 
         <section className="feature-section" id="features">
           <div className="landing-container feature-layout">
-            <div className="feature-copy">
+            <div className="feature-copy" data-reveal>
               <p className="landing-eyebrow"><span /> {copy.features.eyebrow}</p>
               <h2>{copy.features.title}</h2>
               <p>{copy.features.body}</p>
               <a className="landing-text-link" href="/app">{copy.nav.enter}<span>↗</span></a>
             </div>
             <div className="feature-list">
-              {copy.features.items.map(([number, title, body]) => (
-                <article key={number} className="feature-row">
+              {copy.features.items.map(([number, title, body], index) => (
+                <article
+                  key={number}
+                  className="feature-row"
+                  data-reveal
+                  style={{ "--reveal-delay": `${index * 110}ms` }}
+                >
                   <span>{number}</span><div><h3>{title}</h3><p>{body}</p></div><b>+</b>
                 </article>
               ))}
@@ -349,7 +442,7 @@ export default function LandingPage() {
         </section>
 
         <section className="demo-section landing-container" id="demo">
-          <div className="demo-copy">
+          <div className="demo-copy" data-reveal>
             <p className="landing-eyebrow"><span /> {copy.demo.eyebrow}</p>
             <h2>{copy.demo.title}</h2>
             <p>{copy.demo.body}</p>
@@ -357,7 +450,15 @@ export default function LandingPage() {
               {copy.demo.button}<span>↗</span>
             </a>
           </div>
-          <a className="video-card" href={DEMO_VIDEO_URL} target="_blank" rel="noreferrer" aria-label={copy.demo.button}>
+          <a
+            className="video-card"
+            href={DEMO_VIDEO_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={copy.demo.button}
+            data-reveal
+            style={{ "--reveal-delay": "120ms" }}
+          >
             <div className="video-screen">
               <div className="video-interface">
                 <span className="video-dot" /><span /><span /><b>AIRA / product walkthrough</b>
@@ -374,28 +475,40 @@ export default function LandingPage() {
 
         <section className="team-section" id="team">
           <div className="landing-container">
-            <div className="centered-heading team-heading">
+            <div className="centered-heading team-heading" data-reveal>
               <p className="landing-eyebrow"><span /> {copy.team.eyebrow}</p>
               <h2>{copy.team.title}</h2>
               <p>{copy.team.body}</p>
             </div>
             <div className="team-grid">
-              {TEAM.map((name, index) => (
-                <article className="team-card" key={name}>
-                  <div className="team-photo" aria-label={`${name} ${copy.team.photo}`}><span>{copy.team.photo}</span></div>
-                  <p className="team-index">0{index + 1}</p>
-                  <h3>{name}</h3>
-                </article>
-              ))}
+              {TEAM.map(({ name, photo }, index) => {
+                const [role, task] = copy.team.roles[index];
+                return (
+                  <article
+                    className="team-card"
+                    key={name}
+                    data-reveal
+                    style={{ "--reveal-delay": `${index * 90}ms` }}
+                  >
+                    <div className="team-photo">
+                      <img src={photo} alt={name} loading="lazy" width="720" height="900" />
+                    </div>
+                    <p className="team-index">0{index + 1}</p>
+                    <h3>{name}</h3>
+                    <p className="team-role">{role}</p>
+                    <p className="team-task">{task}</p>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </section>
 
         <section className="faq-section landing-container" id="faq">
-          <div className="section-copy"><p className="landing-eyebrow"><span /> {copy.faq.eyebrow}</p><h2>{copy.faq.title}</h2></div>
+          <div className="section-copy" data-reveal><p className="landing-eyebrow"><span /> {copy.faq.eyebrow}</p><h2>{copy.faq.title}</h2></div>
           <div className="faq-list">
-            {copy.faq.items.map(([question, answer]) => (
-              <details key={question}><summary>{question}<span>+</span></summary><p>{answer}</p></details>
+            {copy.faq.items.map(([question, answer], index) => (
+              <details key={question} data-reveal style={{ "--reveal-delay": `${index * 90}ms` }}><summary>{question}<span>+</span></summary><p>{answer}</p></details>
             ))}
           </div>
         </section>
@@ -403,6 +516,14 @@ export default function LandingPage() {
 
       <footer className="landing-footer">
         <div className="landing-container footer-top"><Brand /><p>{copy.footer.line}</p><a className="landing-button landing-button-primary" href="/app">{copy.footer.enter}<span>↗</span></a></div>
+        <div className="landing-container footer-portals">
+          <span>{copy.footer.portals}</span>
+          <nav aria-label={copy.footer.portals}>
+            <a href="/app?role=borrower">{copy.footer.borrower}<span aria-hidden="true">↗</span></a>
+            <a href="/app?role=lender">{copy.footer.lender}<span aria-hidden="true">↗</span></a>
+            <a href="/admin">{copy.footer.admin}<span aria-hidden="true">↗</span></a>
+          </nav>
+        </div>
         <div className="landing-container footer-bottom"><span>© 2026 {copy.footer.rights}</span><span>AIRA / CUET</span></div>
       </footer>
     </div>

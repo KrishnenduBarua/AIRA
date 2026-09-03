@@ -16,6 +16,10 @@ export default function BorrowerDashboard({ session, onLogout }) {
   const [profile, setProfile] = useState(null);
   const [profileState, setProfileState] = useState("loading");
   const [profileError, setProfileError] = useState("");
+  const [accountProfile, setAccountProfile] = useState(null);
+  const [accountProfileState, setAccountProfileState] = useState("idle");
+  const [accountProfileError, setAccountProfileError] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // The chosen file lives in state rather than only on the input element, so a
   // failed upload can be retried without asking the borrower to find it again.
@@ -24,6 +28,11 @@ export default function BorrowerDashboard({ session, onLogout }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
   const [uploadResult, setUploadResult] = useState(null);
+  // bKash and Nagad statement PDFs are locked with the account's own mobile
+  // number. The password never leaves this component except as one field on the
+  // upload request, and is cleared as soon as a statement is accepted.
+  const [statementPassword, setStatementPassword] = useState("");
+  const [passwordNeeded, setPasswordNeeded] = useState(false);
   const fileInputRef = useRef(null);
 
   const [lenders, setLenders] = useState([]);
@@ -80,6 +89,24 @@ export default function BorrowerDashboard({ session, onLogout }) {
   useEffect(() => {
     loadProfile();
   }, [loadProfile, session.user.id]);
+
+  const loadAccountProfile = useCallback(async () => {
+    setAccountProfileState("loading");
+    try {
+      const data = await request("/auth/profile");
+      setAccountProfile(data.profile || null);
+      setAccountProfileError("");
+      setAccountProfileState("ready");
+    } catch (error) {
+      setAccountProfileError(error.message);
+      setAccountProfileState("error");
+    }
+  }, []);
+
+  const openAccountProfile = () => {
+    setProfileOpen(true);
+    loadAccountProfile();
+  };
 
   /* ------------------------------------------------------------- lenders */
 
@@ -138,12 +165,24 @@ export default function BorrowerDashboard({ session, onLogout }) {
 
   /* -------------------------------------------------------------- upload */
 
+  // Known failure codes get a plain-language, translated explanation; anything
+  // else falls back to whatever the server said rather than showing a raw key.
+  const uploadErrorMessage = (error) => {
+    if (!error.code) return error.message;
+    const key = `upload.errors.${error.code}`;
+    const translated = t(key);
+    return translated === key ? error.message : translated;
+  };
+
   const chooseFile = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setUploadResult(null);
     setUploadPhase("idle");
     setUploadProgress(0);
+
+    setPasswordNeeded(false);
+    setStatementPassword("");
 
     if (!SUPPORTED_EXTENSIONS.test(file.name)) {
       setSelectedFile(null);
@@ -175,6 +214,9 @@ export default function BorrowerDashboard({ session, onLogout }) {
     try {
       const body = new FormData();
       body.append("statement", selectedFile);
+      if (statementPassword.trim()) {
+        body.append("password", statementPassword.trim());
+      }
 
       const uploaded = await uploadWithProgress("/statements/upload", body, {
         onProgress: (ratio) => {
@@ -201,11 +243,18 @@ export default function BorrowerDashboard({ session, onLogout }) {
         filename: uploaded.statement?.filename || selectedFile.name,
       });
       setUploadPhase("done");
+      setStatementPassword("");
+      setPasswordNeeded(false);
       // Chat answers are grounded in the score, so an old transcript's
       // context is stale once a new score lands.
       setChatGrounding("");
     } catch (error) {
-      setUploadError(error.message);
+      // A locked PDF is not a failure the borrower should have to decode: the
+      // server names the reason, so the password field is opened for them.
+      if (error.code === "password_required" || error.code === "password_incorrect") {
+        setPasswordNeeded(true);
+      }
+      setUploadError(uploadErrorMessage(error));
       setUploadPhase("error");
     }
   };
@@ -219,6 +268,8 @@ export default function BorrowerDashboard({ session, onLogout }) {
 
   const clearFile = () => {
     setSelectedFile(null);
+    setStatementPassword("");
+    setPasswordNeeded(false);
     resetUpload();
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -292,6 +343,13 @@ export default function BorrowerDashboard({ session, onLogout }) {
       profileState={profileState}
       profileError={profileError}
       onRetryProfile={loadProfile}
+      profileOpen={profileOpen}
+      accountProfile={accountProfile}
+      accountProfileState={accountProfileState}
+      accountProfileError={accountProfileError}
+      onOpenProfile={openAccountProfile}
+      onCloseProfile={() => setProfileOpen(false)}
+      onRetryAccountProfile={loadAccountProfile}
       lenders={lenders}
       lendersState={lendersState}
       lendersError={lendersError}
@@ -308,6 +366,11 @@ export default function BorrowerDashboard({ session, onLogout }) {
       uploadProgress={uploadProgress}
       uploadError={uploadError}
       uploadResult={uploadResult}
+      statementPassword={statementPassword}
+      onStatementPasswordChange={setStatementPassword}
+      passwordNeeded={passwordNeeded}
+      onRevealPassword={() => setPasswordNeeded(true)}
+      accountPhone={session.user.phone || ""}
       question={chatQuestion}
       messages={chatMessages}
       chatLoading={chatLoading}

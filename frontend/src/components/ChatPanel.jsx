@@ -14,6 +14,37 @@ import {
 
 // One chat surface for both audiences. The mode only changes the copy, the
 // suggestions, and which disclaimer is shown — never the safety posture.
+function ChatSizeIcon({ isExpanded }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className="aira-chat-size-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {isExpanded ? (
+        <>
+          <path d="M4 4l6 6M10 10H6M10 10V6" />
+          <path d="M20 4l-6 6M14 10h4M14 10V6" />
+          <path d="M4 20l6-6M10 14H6M10 14v4" />
+          <path d="M20 20l-6-6M14 14h4M14 14v4" />
+        </>
+      ) : (
+        <>
+          <path d="M10 10L4 4M4 4h4M4 4v4" />
+          <path d="M14 10l6-6M20 4h-4M20 4v4" />
+          <path d="M10 14l-6 6M4 20h4M4 20v-4" />
+          <path d="M14 14l6 6M20 20h-4M20 20v-4" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export default function ChatPanel({
   mode,
   available,
@@ -28,6 +59,8 @@ export default function ChatPanel({
   onRetry,
   embedded = false,
   onClose,
+  expanded = false,
+  onToggleSize,
 }) {
   const { t } = useLanguage();
   const isBorrower = mode === "borrower";
@@ -72,21 +105,36 @@ export default function ChatPanel({
               {t(isBorrower ? "chat.borrowerIntro" : "chat.lenderIntro")}
             </p>
           </div>
-          {grounding && (
-            <Badge tone="info">
-              {t("chat.grounding.label")}: {t(`chat.grounding.${grounding}`)}
-            </Badge>
-          )}
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t("chat.close")}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-2xl leading-none text-white/85 transition hover:bg-white/15 hover:text-white"
-            >
-              ×
-            </button>
-          )}
+          <div className="flex shrink-0 items-center gap-1">
+            {grounding && (
+              <Badge tone="info">
+                {t("chat.grounding.label")}: {t(`chat.grounding.${grounding}`)}
+              </Badge>
+            )}
+            {onToggleSize && (
+              <button
+                type="button"
+                onClick={onToggleSize}
+                aria-expanded={expanded}
+                aria-label={t(expanded ? "chat.collapse" : "chat.expand")}
+                title={t(expanded ? "chat.collapse" : "chat.expand")}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg leading-none text-white/85 transition hover:bg-white/15 hover:text-white"
+              >
+                <ChatSizeIcon isExpanded={expanded} />
+              </button>
+            )}
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t("chat.close")}
+                title={t("chat.close")}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-2xl leading-none text-white/85 transition hover:bg-white/15 hover:text-white"
+              >
+                ×
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <CardHeader

@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { API_URL } from "../api";
 import { useLanguage } from "../i18n";
 import {
   Alert,
@@ -11,6 +13,7 @@ import {
   ProgressBar,
   Skeleton,
   SkeletonList,
+  TextInput,
   cx,
 } from "../ui/primitives";
 import ChatWidget from "./ChatWidget";
@@ -42,6 +45,85 @@ function formatDate(value, language) {
     month: "short",
     year: "numeric",
   });
+}
+
+function BorrowerProfileCard({ profile, state, error, onRetry, onClose, language }) {
+  const { t } = useLanguage();
+
+  return (
+    <Card className="borrower-profile-card">
+      <CardHeader
+        eyebrow={t("borrower.profileTitle")}
+        description={t("borrower.profileHelp")}
+        actions={
+          <Button variant="secondary" onClick={onClose}>
+            {t("common.close")}
+          </Button>
+        }
+      />
+
+      {state === "loading" ? (
+        <div className="mt-4 space-y-3">
+          <Skeleton className="h-5 w-1/3" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      ) : state === "error" ? (
+        <Alert
+          variant="error"
+          className="mt-4"
+          action={
+            <Button variant="secondary" onClick={onRetry}>
+              {t("common.retry")}
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      ) : profile ? (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {[
+              [t("auth.fullName"), profile.name],
+              [t("common.phone"), profile.phoneNumber],
+              [t("auth.dob"), profile.dateOfBirth || "—"],
+              [t("auth.nidNumber"), profile.nidNumber || "—"],
+              [t("auth.address"), profile.permanentAddress || "—"],
+              [t("borrower.joined"), formatDate(profile.createdAt, language)],
+            ].map(([label, value]) => (
+              <div key={label} className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+                <p className="mt-1 break-words text-sm text-slate-900">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50 p-4">
+            <p className="text-sm font-semibold text-brand-900">{t("borrower.profileDocuments")}</p>
+            <p className="mt-1 text-sm leading-6 text-slate-700">{t("borrower.profileDocumentsHelp")}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[ ["front", t("auth.nidFront")], ["back", t("auth.nidBack")] ].map(([side, label]) =>
+                profile.documents?.[side] ? (
+                  <a
+                    key={side}
+                    href={`${API_URL}${profile.documents[side]}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-11 items-center rounded-xl border border-brand-300 bg-white px-4 py-2.5 text-sm font-semibold text-brand-800 hover:bg-brand-50"
+                  >
+                    {label} — {t("borrower.openDocument")}
+                  </a>
+                ) : null,
+              )}
+            </div>
+          </div>
+
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            {t("borrower.profilePasswordNote")}
+          </p>
+        </>
+      ) : null}
+    </Card>
+  );
 }
 
 /* ------------------------------------------------------------------ consent */
@@ -375,10 +457,17 @@ function UploadCard({
   progress,
   error,
   result,
+  statementPassword,
+  onStatementPasswordChange,
+  passwordNeeded,
+  onRevealPassword,
+  accountPhone,
 }) {
   const { t } = useLanguage();
   const active = UPLOAD_STEPS.includes(phase);
   const activeIndex = UPLOAD_STEPS.indexOf(phase);
+  const [showPassword, setShowPassword] = useState(false);
+  const isPdf = /\.pdf$/i.test(selectedFile?.name || "");
 
   return (
     <Card className="borrower-upload-card">
@@ -434,6 +523,53 @@ function UploadCard({
               {t("common.close")}
             </Button>
           )}
+        </div>
+      )}
+
+      {selectedFile && isPdf && !passwordNeeded && !active && (
+        <button
+          type="button"
+          onClick={onRevealPassword}
+          className="mt-3 text-sm font-medium text-brand-700 underline underline-offset-2"
+        >
+          {t("upload.passwordToggle")}
+        </button>
+      )}
+
+      {selectedFile && isPdf && passwordNeeded && (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <TextInput
+            label={t("upload.passwordLabel")}
+            help={t("upload.passwordHelp")}
+            type={showPassword ? "text" : "password"}
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder={t("upload.passwordPlaceholder")}
+            value={statementPassword}
+            disabled={active}
+            onChange={(event) => onStatementPasswordChange(event.target.value)}
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              className="text-xs font-medium text-brand-700 underline underline-offset-2"
+            >
+              {t(showPassword ? "upload.passwordHide" : "upload.passwordShow")}
+            </button>
+            {accountPhone && statementPassword !== accountPhone && !active && (
+              <button
+                type="button"
+                onClick={() => onStatementPasswordChange(accountPhone)}
+                className="text-xs font-medium text-brand-700 underline underline-offset-2"
+              >
+                {t("upload.passwordUseMine", { phone: accountPhone })}
+              </button>
+            )}
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            {t("upload.passwordPrivacy")}
+          </p>
         </div>
       )}
 
@@ -723,6 +859,13 @@ export default function BorrowerDashboardView({
   profileState,
   profileError,
   onRetryProfile,
+  profileOpen,
+  accountProfile,
+  accountProfileState,
+  accountProfileError,
+  onOpenProfile,
+  onCloseProfile,
+  onRetryAccountProfile,
   lenders,
   lendersState,
   lendersError,
@@ -739,6 +882,11 @@ export default function BorrowerDashboardView({
   uploadProgress,
   uploadError,
   uploadResult,
+  statementPassword,
+  onStatementPasswordChange,
+  passwordNeeded,
+  onRevealPassword,
+  accountPhone,
   question,
   messages,
   chatLoading,
@@ -759,12 +907,28 @@ export default function BorrowerDashboardView({
           title={t("borrower.welcome", { name: session.user.name })}
           description={t("borrower.subtitle")}
           actions={
-            <Button variant="secondary" onClick={onLogout}>
-              {t("common.logout")}
-            </Button>
+            <>
+              <Button variant="secondary" onClick={onOpenProfile}>
+                {t("borrower.profile")}
+              </Button>
+              <Button variant="secondary" onClick={onLogout}>
+                {t("common.logout")}
+              </Button>
+            </>
           }
         />
       </Card>
+
+      {profileOpen && (
+        <BorrowerProfileCard
+          profile={accountProfile}
+          state={accountProfileState}
+          error={accountProfileError}
+          onRetry={onRetryAccountProfile}
+          onClose={onCloseProfile}
+          language={language}
+        />
+      )}
 
       <div className="dashboard-summary borrower-summary" aria-label={t("borrower.tierTitle")}>
         <Card as="article" className="dashboard-stat">
@@ -834,6 +998,11 @@ export default function BorrowerDashboardView({
           progress={uploadProgress}
           error={uploadError}
           result={uploadResult}
+          statementPassword={statementPassword}
+          onStatementPasswordChange={onStatementPasswordChange}
+          passwordNeeded={passwordNeeded}
+          onRevealPassword={onRevealPassword}
+          accountPhone={accountPhone}
         />
       </div>
 

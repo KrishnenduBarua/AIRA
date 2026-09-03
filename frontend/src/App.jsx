@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import AuthFlow from "./components/AuthFlow";
+import IntroSequence from "./components/IntroSequence";
 import LandingPage from "./components/LandingPage";
 import { request } from "./api";
 import { LANGUAGES, LanguageProvider, useLanguage } from "./i18n";
@@ -59,11 +60,22 @@ function Shell() {
   const isLandingPage =
     window.location.pathname === "/" || window.location.pathname === "/landing";
   const isAdminUrl = window.location.pathname.startsWith("/admin");
-  const [portalRole, setPortalRole] = useState(() =>
-    isAdminUrl ? "admin" : localStorage.getItem("aira_portal_role") || "borrower",
-  );
+  const [portalRole, setPortalRole] = useState(() => {
+    if (isAdminUrl) return "admin";
+    const asked = new URLSearchParams(window.location.search).get("role");
+    if (asked === "borrower" || asked === "lender") {
+      try {
+        localStorage.setItem("aira_portal_role", asked);
+      } catch {
+        /* private mode — the choice just does not persist */
+      }
+      return asked;
+    }
+    return localStorage.getItem("aira_portal_role") || "borrower";
+  });
   const [session, setSession] = useState(null);
   const [sessionState, setSessionState] = useState("loading");
+  const [introOpen, setIntroOpen] = useState(isLandingPage);
 
   const loadSession = useCallback(() => {
     let active = true;
@@ -102,7 +114,14 @@ function Shell() {
 
   const dashboardProps = { session, onLogout: logout };
 
-  if (isLandingPage) return <LandingPage />;
+  if (isLandingPage) {
+    return (
+      <>
+        {introOpen && <IntroSequence onDone={() => setIntroOpen(false)} />}
+        <LandingPage revealReady={!introOpen} />
+      </>
+    );
+  }
 
   return (
     <div className="aira-app-shell min-h-screen bg-slate-100 text-slate-900">
@@ -115,7 +134,11 @@ function Shell() {
 
       <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-4 sm:py-6 lg:px-8">
         <header className="aira-header mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-soft sm:mb-6 sm:p-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
+          <a
+            href="/"
+            className="aira-header-brand flex min-w-0 items-center gap-3"
+            aria-label={t("app.backToLanding")}
+          >
             <img
               src="/favicon.ico"
               alt=""
@@ -131,13 +154,27 @@ function Shell() {
                 {t("app.tagline")}
               </h1>
             </div>
-          </div>
+          </a>
+
+          <a className="aira-home-link md:mr-auto" href="/">
+            <span aria-hidden="true">←</span>
+            {t("app.backToLanding")}
+          </a>
+
+          <div
+            id="aira-header-nav"
+            className="flex min-w-0 flex-wrap items-center gap-1 md:mx-auto"
+          />
 
           <div className="flex flex-wrap items-center gap-2">
             <LanguageToggle />
             {isAdminUrl ? (
               <p className="text-sm font-semibold text-slate-600">
                 {t("app.adminPortal")}
+              </p>
+            ) : session ? (
+              <p className="rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-800">
+                {t(`app.${session.user.role}`)}
               </p>
             ) : (
               <div
@@ -164,6 +201,10 @@ function Shell() {
                 ))}
               </div>
             )}
+            <div
+              id="aira-header-actions"
+              className="flex flex-wrap items-center gap-2"
+            />
           </div>
         </header>
 

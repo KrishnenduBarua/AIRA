@@ -22,14 +22,25 @@ export async function request(path, options = {}) {
     : {};
 
   if (!response.ok) {
-    const detail =
-      typeof data.details === "string"
-        ? data.details
-        : data.details?.detail || data.details?.message || "";
-    const message = data.message || "Something went wrong.";
-    throw new Error(detail && detail !== message ? `${message} ${detail}` : message);
+    throw apiError(data);
   }
   return data;
+}
+
+// Server errors carry a machine-readable `code` alongside the human message so
+// callers can react to a specific failure (a locked statement PDF, say) rather
+// than pattern-matching on English text.
+function apiError(data) {
+  const detail =
+    typeof data.details === "string"
+      ? data.details
+      : data.details?.detail || data.details?.message || "";
+  const message = data.message || "Something went wrong.";
+  const error = new Error(
+    detail && detail !== message ? `${message} ${detail}` : message,
+  );
+  if (data.code) error.code = data.code;
+  return error;
 }
 
 // Upload with real progress events. fetch() cannot report request-body
@@ -60,14 +71,7 @@ export function uploadWithProgress(path, formData, { onProgress } = {}) {
         return;
       }
 
-      const detail =
-        typeof data.details === "string"
-          ? data.details
-          : data.details?.detail || data.details?.message || "";
-      const message = data.message || "Something went wrong.";
-      reject(
-        new Error(detail && detail !== message ? `${message} ${detail}` : message),
-      );
+      reject(apiError(data));
     });
 
     xhr.addEventListener("error", () =>

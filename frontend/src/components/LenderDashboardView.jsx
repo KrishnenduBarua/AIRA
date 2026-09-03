@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { API_URL } from "../api";
 import { useLanguage } from "../i18n";
 import {
@@ -9,6 +10,7 @@ import {
   CardHeader,
   DefinitionGrid,
   EmptyState,
+  HeaderSlot,
   Page,
   ProgressBar,
   Skeleton,
@@ -27,6 +29,12 @@ const STATUS_TONES = {
 };
 
 const SEVERITY_TONES = { high: "danger", medium: "warning", low: "info" };
+const FRAUD_REVIEW_TONES = {
+  pending: "danger",
+  reviewing: "warning",
+  cleared: "success",
+  confirmed: "danger",
+};
 
 const SEASONALITY_TONES = {
   steady: "success",
@@ -34,6 +42,25 @@ const SEASONALITY_TONES = {
   irregular: "warning",
   indeterminate: "neutral",
 };
+
+// The analysis columns run long — a full SHAP list, anomalies, statements —
+// while the decision column beside them is short. Collapsing the detail keeps
+// the two sides closer in height, and lets a reviewer open only what they need.
+function CollapseToggle({ open, onToggle, controls }) {
+  const { t } = useLanguage();
+  return (
+    <button
+      type="button"
+      className="aira-collapse-toggle"
+      aria-expanded={open}
+      aria-controls={controls}
+      onClick={onToggle}
+    >
+      {open ? t("common.collapse") : t("common.expand")}
+      <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+    </button>
+  );
+}
 
 function statusLabel(t, status) {
   return t(`lender.filter${status.charAt(0).toUpperCase()}${status.slice(1)}`);
@@ -183,13 +210,19 @@ function RequestList({
                     <p className="break-words text-xs text-slate-600">
                       {item.borrowerPhone}
                     </p>
-                    <Badge
-                      tone={item.borrowerNidVerified ? "success" : "warning"}
-                    >
-                      {item.borrowerNidVerified
-                        ? t("common.verified")
-                        : t("common.pending")}
-                    </Badge>
+                    <div className="mt-auto flex min-w-0 flex-wrap items-center justify-between gap-2">
+                      <Badge
+                        tone={item.borrowerNidVerified ? "success" : "warning"}
+                      >
+                        {item.borrowerNidVerified
+                          ? t("common.verified")
+                          : t("common.pending")}
+                      </Badge>
+                      <span className="aira-details-cta">
+                        {t("common.showDetails")}
+                        <span aria-hidden="true">›</span>
+                      </span>
+                    </div>
                   </button>
                 </li>
               ))}
@@ -206,10 +239,113 @@ function RequestList({
   );
 }
 
+// The workspace navigation lives inside the shared app header, so a lender
+// never sees two stacked bars saying the same thing.
+function LenderNavbar({ activeSection, onSectionChange, pendingCount, fraudCount, onLogout }) {
+  const { t } = useLanguage();
+  const items = [
+    { id: "overview", label: t("lender.navOverview"), icon: "⌂", count: pendingCount },
+    { id: "fraud", label: t("lender.navFraud"), icon: "!", count: fraudCount },
+  ];
+
+  return (
+    <>
+      <HeaderSlot id="aira-header-nav">
+        <nav className="lender-navbar-nav" aria-label={t("lender.navigation")}>
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={cx("lender-navbar-link", activeSection === item.id && "is-active")}
+              aria-current={activeSection === item.id ? "page" : undefined}
+              onClick={() => onSectionChange(item.id)}
+            >
+              <span className="lender-navbar-icon" aria-hidden="true">{item.icon}</span>
+              <span>{item.label}</span>
+              {item.count > 0 && <span className="lender-navbar-count">{item.count}</span>}
+            </button>
+          ))}
+        </nav>
+      </HeaderSlot>
+      <HeaderSlot id="aira-header-actions">
+        <button type="button" className="lender-navbar-logout" onClick={onLogout}>
+          ↗ <span>{t("common.logout")}</span>
+        </button>
+      </HeaderSlot>
+    </>
+  );
+}
+
+function LenderWorkspace({
+  children,
+  activeSection,
+  onSectionChange,
+  pendingCount,
+  fraudCount,
+  onLogout,
+}) {
+  return (
+    <div className="lender-workspace-shell">
+      <LenderNavbar
+        activeSection={activeSection}
+        onSectionChange={onSectionChange}
+        pendingCount={pendingCount}
+        fraudCount={fraudCount}
+        onLogout={onLogout}
+      />
+      <div className="lender-workspace-content">{children}</div>
+    </div>
+  );
+}
+
+function FraudReferralList({ requests, onOpen }) {
+  const { t } = useLanguage();
+
+  return (
+    <Card className="lender-fraud-queue-card">
+      <CardHeader
+        eyebrow={t("lender.fraudReview")}
+        title={t("lender.fraudQueueTitle")}
+        description={t("lender.fraudQueueHelp")}
+      />
+      {requests.length === 0 ? (
+        <div className="mt-4"><EmptyState title={t("lender.noFraudReferrals")} /></div>
+      ) : (
+        <ul className="mt-4 grid gap-3 md:grid-cols-2">
+          {requests.map((item) => (
+            <li key={item.id}>
+              <button type="button" onClick={() => onOpen(item.id)} className="lender-referral-row">
+                <span className="min-w-0">
+                  <span className="block break-words font-semibold text-slate-900">{item.borrowerName}</span>
+                  <span className="mt-1 block text-xs text-slate-600">{item.borrowerPhone}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <Badge tone={FRAUD_REVIEW_TONES[item.fraudReview?.status] || "neutral"}>
+                    {item.fraudReview
+                      ? t(`lender.fraudStatus.${item.fraudReview.status}`)
+                      : t("lender.notReferred")}
+                  </Badge>
+                  <span className="aira-details-cta">
+                    {t("common.showDetails")}
+                    <span aria-hidden="true">›</span>
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
 /* --------------------------------------------------------------- score view */
+
+const TOP_FACTORS = 4;
 
 function ScoreDetail({ score, insights }) {
   const { t } = useLanguage();
+  const [allFactors, setAllFactors] = useState(false);
 
   if (!score) {
     return (
@@ -218,6 +354,7 @@ function ScoreDetail({ score, insights }) {
   }
 
   const factors = insights?.factors || score.describedFactors || [];
+  const visibleFactors = allFactors ? factors : factors.slice(0, TOP_FACTORS);
 
   return (
     <div className="space-y-4">
@@ -246,7 +383,7 @@ function ScoreDetail({ score, insights }) {
             {t("lender.factorsHelp")}
           </p>
           <ul className="mt-3 space-y-2">
-            {factors.map((factor) => {
+            {visibleFactors.map((factor) => {
               const magnitude = Math.min(1, Math.abs(factor.value) / 1.5);
               return (
                 <li
@@ -289,6 +426,19 @@ function ScoreDetail({ score, insights }) {
               );
             })}
           </ul>
+          {factors.length > TOP_FACTORS && (
+            <Button
+              variant="subtle"
+              full
+              className="mt-3"
+              aria-expanded={allFactors}
+              onClick={() => setAllFactors((open) => !open)}
+            >
+              {allFactors
+                ? t("lender.showTopFactors")
+                : t("lender.showAllFactors", { count: factors.length })}
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -297,13 +447,24 @@ function ScoreDetail({ score, insights }) {
 
 function InsightsCard({ insights }) {
   const { t } = useLanguage();
+  const [open, setOpen] = useState(true);
   if (!insights) return null;
 
   const { seasonality, anomalies, history } = insights;
 
   return (
     <Card>
-      <CardHeader eyebrow={t("lender.seasonality")} />
+      <CardHeader
+        eyebrow={t("lender.seasonality")}
+        actions={
+          <CollapseToggle
+            open={open}
+            onToggle={() => setOpen((value) => !value)}
+            controls="lender-insights-body"
+          />
+        }
+      />
+      <div id="lender-insights-body" hidden={!open}>
       <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
         <Badge tone={SEASONALITY_TONES[seasonality.pattern] || "neutral"}>
           {seasonality.pattern}
@@ -355,15 +516,27 @@ function InsightsCard({ insights }) {
           </ul>
         )}
       </div>
+      </div>
     </Card>
   );
 }
 
 function Statements({ detail }) {
   const { t } = useLanguage();
+  const [open, setOpen] = useState(true);
   return (
     <Card>
-      <CardHeader eyebrow={t("lender.statements")} />
+      <CardHeader
+        eyebrow={t("lender.statements")}
+        actions={
+          <CollapseToggle
+            open={open}
+            onToggle={() => setOpen((value) => !value)}
+            controls="lender-statements-body"
+          />
+        }
+      />
+      <div id="lender-statements-body" hidden={!open}>
       {detail.statements.length === 0 ? (
         <div className="mt-3">
           <EmptyState title={t("lender.noStatements")} />
@@ -400,6 +573,7 @@ function Statements({ detail }) {
           ))}
         </ul>
       )}
+      </div>
     </Card>
   );
 }
@@ -507,6 +681,100 @@ function DecisionCard({
   );
 }
 
+function FraudReviewCard({
+  detail,
+  reason,
+  onReasonChange,
+  error,
+  submitting,
+  onSubmit,
+}) {
+  const { t } = useLanguage();
+  const review = detail.fraudReview;
+
+  if (review) {
+    return (
+      <Card>
+        <CardHeader
+          eyebrow={t("lender.fraudReview")}
+          actions={
+            <Badge tone={FRAUD_REVIEW_TONES[review.status] || "neutral"}>
+              {t(`lender.fraudStatus.${review.status}`)}
+            </Badge>
+          }
+        />
+        <Alert
+          variant={review.status === "cleared" ? "success" : "warning"}
+          className="mt-3"
+          title={t(`lender.fraudStatus.${review.status}`)}
+        >
+          <p>{review.reason}</p>
+          {review.adminNotes && (
+            <p className="mt-2 text-xs">{t("lender.adminNote")}: {review.adminNotes}</p>
+          )}
+        </Alert>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        eyebrow={t("lender.fraudReview")}
+        description={t("lender.fraudReviewHelp")}
+      />
+      <TextArea
+        required
+        rows={4}
+        className="mt-4"
+        label={t("lender.fraudReasonLabel")}
+        help={t("lender.fraudReasonHelp")}
+        placeholder={t("lender.fraudReasonPlaceholder")}
+        value={reason}
+        onChange={(event) => onReasonChange(event.target.value)}
+        error={error}
+        disabled={submitting}
+      />
+      <Button
+        full
+        variant="danger"
+        className="mt-3"
+        onClick={onSubmit}
+        disabled={submitting || reason.trim().length < 10}
+      >
+        {submitting ? t("lender.fraudSubmitting") : t("lender.sendFraudReview")}
+      </Button>
+    </Card>
+  );
+}
+
+function ReviewChecklist() {
+  const { t } = useLanguage();
+  const items = [
+    t("lender.checkNameMatch"),
+    t("lender.checkPhoneMatch"),
+    t("lender.checkStatements"),
+    t("lender.checkAnomalies"),
+  ];
+
+  return (
+    <Card className="lender-checklist-card">
+      <CardHeader
+        eyebrow={t("lender.checklist")}
+        description={t("lender.checklistHelp")}
+      />
+      <div className="mt-3 space-y-2">
+        {items.map((item) => (
+          <label key={item} className="lender-checklist-item">
+            <input type="checkbox" />
+            <span>{item}</span>
+          </label>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 /* ------------------------------------------------------------ review screen */
 
 function ReviewScreen({
@@ -559,6 +827,7 @@ function ReviewScreen({
       ) : detail ? (
         <>
           <SplitLayout
+            className="lender-review-layout"
             main={
               <>
                 <Card className="review-profile-card">
@@ -612,7 +881,6 @@ function ReviewScreen({
               </Card>
 
               <InsightsCard insights={detail.insights} />
-              <Statements detail={detail} />
               </>
             }
             aside={
@@ -627,6 +895,8 @@ function ReviewScreen({
                   deciding={deciding}
                   onSubmit={onSubmitDecision}
                 />
+                <ReviewChecklist />
+                <Statements detail={detail} />
               </>
             }
           />
@@ -637,6 +907,75 @@ function ReviewScreen({
             mode="lender"
             {...chatProps}
           />
+        </>
+      ) : null}
+    </Page>
+  );
+}
+
+function FraudReviewScreen({
+  detail,
+  detailLoading,
+  detailError,
+  onBack,
+  onRetryDetail,
+  fraudReason,
+  onFraudReasonChange,
+  fraudError,
+  fraudSubmitting,
+  onSubmitFraudReview,
+}) {
+  const { t } = useLanguage();
+
+  return (
+    <Page className="dashboard-page lender-review-page lender-fraud-page">
+      <BackLink onClick={onBack}>{t("common.backToDashboard")}</BackLink>
+      {detailError && (
+        <Alert
+          variant="error"
+          title={t("errors.loadProfile")}
+          action={<Button variant="secondary" onClick={onRetryDetail}>{t("common.retry")}</Button>}
+        >
+          {detailError}
+        </Alert>
+      )}
+      {detailLoading ? (
+        <Card><Skeleton className="h-40 w-full" /></Card>
+      ) : detail ? (
+        <>
+          <Card className="review-profile-card">
+            <CardHeader
+              eyebrow={t("lender.fraudReview")}
+              title={detail.borrower.name}
+              description={t("lender.fraudPageHelp")}
+              actions={<Badge tone={STATUS_TONES[detail.request.status]}>{statusLabel(t, detail.request.status)}</Badge>}
+            />
+            <div className="mt-4">
+              <DefinitionGrid
+                items={[
+                  { label: t("common.phone"), value: detail.borrower.phone },
+                  { label: t("auth.nidNumber"), value: detail.borrower.nidNumber },
+                  { label: t("auth.steps.identity"), value: detail.borrower.nidVerified ? t("common.verified") : t("common.pending") },
+                ]}
+              />
+            </div>
+          </Card>
+          <div className="lender-fraud-only-grid">
+            <Card className="review-score-card">
+              <CardHeader eyebrow={t("lender.trustScore")} />
+              <div className="mt-4"><ScoreDetail score={detail.score} insights={null} /></div>
+            </Card>
+            <div className="lender-fraud-action-stack">
+              <FraudReviewCard
+                detail={detail}
+                reason={fraudReason}
+                onReasonChange={onFraudReasonChange}
+                error={fraudError}
+                submitting={fraudSubmitting}
+                onSubmit={onSubmitFraudReview}
+              />
+            </div>
+          </div>
         </>
       ) : null}
     </Page>
@@ -682,6 +1021,11 @@ export default function LenderDashboardView({
   decisionError,
   deciding,
   onSubmitDecision,
+  fraudReason,
+  onFraudReasonChange,
+  fraudError,
+  fraudSubmitting,
+  onSubmitFraudReview,
   chatOpen,
   onOpenChat,
   onCloseChat,
@@ -694,8 +1038,13 @@ export default function LenderDashboardView({
   onQuestionChange,
   onAskCoach,
   onRetryChat,
+  activeSection,
+  onSectionChange,
+  reviewMode,
+  onOpenFraudRequest,
 }) {
   const { t } = useLanguage();
+  const fraudCount = requests.filter((item) => item.fraudReview).length;
 
   const chatProps = {
     available: Boolean(scoreData),
@@ -712,76 +1061,87 @@ export default function LenderDashboardView({
 
   if (selectedRequest) {
     return (
-      <ReviewScreen
-        detail={requestDetail}
-        detailLoading={detailLoading}
-        detailError={detailError}
-        onBack={onBack}
-        onRetryDetail={onRetryDetail}
-        decisionDraft={decisionDraft}
-        onDecisionDraftChange={onDecisionDraftChange}
-        decisionReason={decisionReason}
-        onDecisionReasonChange={onDecisionReasonChange}
-        decisionError={decisionError}
-        deciding={deciding}
-        onSubmitDecision={onSubmitDecision}
-        chatProps={chatProps}
-        chatOpen={chatOpen}
-        onOpenChat={onOpenChat}
-        onCloseChat={onCloseChat}
-      />
+      <LenderWorkspace
+        activeSection={activeSection}
+        onSectionChange={onSectionChange}
+        pendingCount={pendingCount}
+        fraudCount={fraudCount}
+        onLogout={onLogout}
+      >
+        {reviewMode === "fraud" ? (
+          <FraudReviewScreen
+            detail={requestDetail}
+            detailLoading={detailLoading}
+            detailError={detailError}
+            onBack={onBack}
+            onRetryDetail={onRetryDetail}
+            fraudReason={fraudReason}
+            onFraudReasonChange={onFraudReasonChange}
+            fraudError={fraudError}
+            fraudSubmitting={fraudSubmitting}
+            onSubmitFraudReview={onSubmitFraudReview}
+          />
+        ) : (
+          <ReviewScreen
+            detail={requestDetail}
+            detailLoading={detailLoading}
+            detailError={detailError}
+            onBack={onBack}
+            onRetryDetail={onRetryDetail}
+            decisionDraft={decisionDraft}
+            onDecisionDraftChange={onDecisionDraftChange}
+            decisionReason={decisionReason}
+            onDecisionReasonChange={onDecisionReasonChange}
+            decisionError={decisionError}
+            deciding={deciding}
+            onSubmitDecision={onSubmitDecision}
+            chatProps={chatProps}
+            chatOpen={chatOpen}
+            onOpenChat={onOpenChat}
+            onCloseChat={onCloseChat}
+          />
+        )}
+      </LenderWorkspace>
     );
   }
 
   return (
-    <Page className="dashboard-page lender-page">
-      <Card className="dashboard-hero lender-hero">
-        <CardHeader
-          eyebrow={t("lender.workspace")}
-          title={t("lender.welcome", { name: session.user.name })}
-          description={t("lender.subtitle")}
-          actions={
-            <Button variant="secondary" onClick={onLogout}>
-              {t("common.logout")}
-            </Button>
-          }
-        />
-      </Card>
+    <LenderWorkspace
+      activeSection={activeSection}
+      onSectionChange={onSectionChange}
+      pendingCount={pendingCount}
+      fraudCount={fraudCount}
+      onLogout={onLogout}
+    >
+      <Page className="dashboard-page lender-page">
+        <Card className="dashboard-hero lender-hero">
+          <CardHeader
+            eyebrow={t(`lender.section.${activeSection}`)}
+            title={t("lender.welcome", { name: session.user.name })}
+            description={t("lender.subtitle")}
+          />
+        </Card>
 
-      <div className="dashboard-summary lender-summary" aria-label={t("lender.inbox")}>
-        <Card as="article" className="dashboard-stat">
-          <span className="dashboard-stat-icon" aria-hidden="true">!</span>
-          <div>
-            <p className="dashboard-stat-label">{t("lender.filterPending")}</p>
-            <p className="dashboard-stat-value">{pendingCount}</p>
-          </div>
-        </Card>
-        <Card as="article" className="dashboard-stat">
-          <span className="dashboard-stat-icon" aria-hidden="true">✓</span>
-          <div>
-            <p className="dashboard-stat-label">{t("lender.filterAccepted")}</p>
-            <p className="dashboard-stat-value">{acceptedCount}</p>
-          </div>
-        </Card>
-        <Card as="article" className="dashboard-stat">
-          <span className="dashboard-stat-icon" aria-hidden="true">—</span>
-          <div>
-            <p className="dashboard-stat-label">{t("lender.filterDeclined")}</p>
-            <p className="dashboard-stat-value">{declinedCount}</p>
-          </div>
-        </Card>
-        <Card as="article" className="dashboard-stat dashboard-stat-total">
-          <span className="dashboard-stat-icon" aria-hidden="true">#</span>
-          <div>
-            <p className="dashboard-stat-label">{t("lender.filterAll")}</p>
-            <p className="dashboard-stat-value">{totalRequests}</p>
-          </div>
-        </Card>
-      </div>
-
-      <div className="lender-workspace-grid">
-        <SplitLayout
-          main={
+        {activeSection === "overview" && (
+          <>
+            <div className="dashboard-summary lender-summary" aria-label={t("lender.inbox")}>
+              <Card as="article" className="dashboard-stat">
+                <span className="dashboard-stat-icon" aria-hidden="true">!</span>
+                <div><p className="dashboard-stat-label">{t("lender.filterPending")}</p><p className="dashboard-stat-value">{pendingCount}</p></div>
+              </Card>
+              <Card as="article" className="dashboard-stat">
+                <span className="dashboard-stat-icon" aria-hidden="true">✓</span>
+                <div><p className="dashboard-stat-label">{t("lender.filterAccepted")}</p><p className="dashboard-stat-value">{acceptedCount}</p></div>
+              </Card>
+              <Card as="article" className="dashboard-stat">
+                <span className="dashboard-stat-icon" aria-hidden="true">—</span>
+                <div><p className="dashboard-stat-label">{t("lender.filterDeclined")}</p><p className="dashboard-stat-value">{declinedCount}</p></div>
+              </Card>
+              <Card as="article" className="dashboard-stat dashboard-stat-total">
+                <span className="dashboard-stat-icon" aria-hidden="true">#</span>
+                <div><p className="dashboard-stat-label">{t("lender.filterAll")}</p><p className="dashboard-stat-value">{totalRequests}</p></div>
+              </Card>
+            </div>
             <RequestList
               requests={requests}
               totalRequests={totalRequests}
@@ -797,47 +1157,13 @@ export default function LenderDashboardView({
               visibleCount={visibleCount}
               onShowMore={onShowMore}
             />
-          }
-          aside={
-            <Card className="lender-lookup-card">
-              <CardHeader
-                eyebrow={t("lender.lookup")}
-                description={t("lender.lookupHelp")}
-              />
-              <div className="mt-4 space-y-3">
-                <TextInput
-                  label={t("lender.lookupPlaceholder")}
-                  value={borrowerId}
-                  onChange={(event) => onBorrowerIdChange(event.target.value)}
-                  placeholder={t("lender.lookupPlaceholder")}
-                />
-                <Button
-                  full
-                  onClick={onLoadScore}
-                  disabled={loadingScore || !borrowerId.trim()}
-                >
-                  {loadingScore ? t("common.loading") : t("lender.loadScore")}
-                </Button>
-              </div>
+          </>
+        )}
 
-              {scoreError && (
-                <Alert variant="error" className="mt-4">
-                  {scoreError}
-                </Alert>
-              )}
-
-              {scoreData && (
-                <div className="mt-4">
-                  <Alert variant="warning" className="mb-3">
-                    {t("lender.aiLabel")}
-                  </Alert>
-                  <ScoreDetail score={scoreData} insights={null} />
-                </div>
-              )}
-            </Card>
-          }
-        />
-      </div>
-    </Page>
+        {activeSection === "fraud" && (
+          <FraudReferralList requests={requests} onOpen={onOpenFraudRequest} />
+        )}
+      </Page>
+    </LenderWorkspace>
   );
 }

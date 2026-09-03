@@ -225,10 +225,12 @@ export default function AuthFlow({ mode, onSuccess }) {
         <form onSubmit={login} className="space-y-4" noValidate>
           <TextInput
             required
-            label={t("common.phone")}
+            label={isBorrower ? t("auth.phoneMfsLabel") : t("common.phone")}
+            help={t(isBorrower ? "auth.phoneLoginHelp" : "auth.phoneLenderHelp")}
             type="tel"
             inputMode="numeric"
             autoComplete="tel"
+            placeholder="01XXXXXXXXX"
             value={loginForm.phone}
             onChange={(e) =>
               setLoginForm((current) => ({ ...current, phone: e.target.value }))
@@ -257,7 +259,8 @@ export default function AuthFlow({ mode, onSuccess }) {
         <form onSubmit={sendOtp} className="space-y-4" noValidate>
           <TextInput
             required
-            label={t("common.phone")}
+            label={isBorrower ? t("auth.phoneMfsLabel") : t("common.phone")}
+            help={t(isBorrower ? "auth.phoneMfsHelp" : "auth.phoneLenderHelp")}
             type="tel"
             inputMode="numeric"
             autoComplete="tel"

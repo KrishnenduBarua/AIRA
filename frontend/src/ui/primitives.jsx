@@ -1,4 +1,5 @@
-import { forwardRef } from "react";
+import { forwardRef, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 // One place for layout, spacing, states, and touch/focus behaviour, so every
 // screen looks and behaves the same. All sizing is mobile-first: the base
@@ -6,6 +7,19 @@ import { forwardRef } from "react";
 
 export function cx(...values) {
   return values.filter(Boolean).join(" ");
+}
+
+/* Lets a dashboard put its own navigation inside the shared app header, so a
+   signed-in screen shows one bar rather than stacking a second one under it.
+   The slot node only exists after the header commits, hence the effect. */
+export function HeaderSlot({ id, children }) {
+  const [node, setNode] = useState(null);
+
+  useEffect(() => {
+    setNode(document.getElementById(id));
+  }, [id]);
+
+  return node ? createPortal(children, node) : null;
 }
 
 /* ------------------------------------------------------------------ layout */
@@ -16,9 +30,9 @@ export function Page({ children, className }) {
 
 // The main content / sidebar split used by every dashboard. Single column
 // until there is genuinely room for two, so tablets stack rather than cramp.
-export function SplitLayout({ main, aside }) {
+export function SplitLayout({ main, aside, className }) {
   return (
-    <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start">
+    <div className={cx("grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start", className)}>
       <div className="min-w-0 space-y-4 sm:space-y-6">{main}</div>
       <div className="min-w-0 space-y-4 sm:space-y-6 lg:sticky lg:top-6">
         {aside}

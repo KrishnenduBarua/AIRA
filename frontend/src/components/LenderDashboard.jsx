@@ -30,6 +30,10 @@ export default function LenderDashboard({ session, onLogout }) {
   const [decisionError, setDecisionError] = useState("");
   const [deciding, setDeciding] = useState(false);
 
+  const [fraudReason, setFraudReason] = useState("");
+  const [fraudError, setFraudError] = useState("");
+  const [fraudSubmitting, setFraudSubmitting] = useState(false);
+
   const [chatQuestion, setChatQuestion] = useState("");
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -37,9 +41,15 @@ export default function LenderDashboard({ session, onLogout }) {
   const [chatError, setChatError] = useState("");
   const [chatGrounding, setChatGrounding] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState(() => {
+    const section = new URLSearchParams(window.location.search).get("section");
+    return ["overview", "fraud"].includes(section) ? section : "overview";
+  });
+  const [reviewMode, setReviewMode] = useState("application");
 
   const resetDetail = useCallback(() => {
     setSelectedRequest(null);
+    setReviewMode("application");
     setRequestDetail(null);
     setDetailError("");
     setScoreData(null);
@@ -52,11 +62,19 @@ export default function LenderDashboard({ session, onLogout }) {
     setDecisionDraft(null);
     setDecisionReason("");
     setDecisionError("");
+    setFraudReason("");
+    setFraudError("");
+    setFraudSubmitting(false);
   }, []);
 
   useEffect(() => {
     const handleHistoryChange = () => {
-      if (!new URLSearchParams(window.location.search).get("request")) {
+      const params = new URLSearchParams(window.location.search);
+      const section = params.get("section");
+      if (["overview", "fraud"].includes(section)) {
+        setActiveSection(section);
+      }
+      if (!params.get("request")) {
         resetDetail();
       }
     };
@@ -128,7 +146,7 @@ export default function LenderDashboard({ session, onLogout }) {
   }, []);
 
   const openRequest = useCallback(
-    async (requestId, { push = true } = {}) => {
+    async (requestId, { push = true, mode = "application" } = {}) => {
       if (push) {
         window.history.pushState(
           { view: "borrower", requestId },
@@ -137,6 +155,7 @@ export default function LenderDashboard({ session, onLogout }) {
         );
       }
       setSelectedRequest(requestId);
+      setReviewMode(mode);
       setRequestDetail(null);
       setDetailError("");
       setDetailLoading(true);
@@ -146,10 +165,12 @@ export default function LenderDashboard({ session, onLogout }) {
 
       try {
         const detail = await request(`/loans/requests/${requestId}`);
-        setRequestDetail(detail);
+      setRequestDetail(detail);
         setBorrowerId(detail.borrower.id);
-        setScoreData(detail.score);
-        await loadChatHistory(detail.borrower.id);
+      setScoreData(detail.score);
+      setFraudReason("");
+      setFraudError("");
+      await loadChatHistory(detail.borrower.id);
       } catch (error) {
         setDetailError(error.message);
       } finally {
@@ -207,6 +228,35 @@ export default function LenderDashboard({ session, onLogout }) {
     }
   };
 
+  const submitFraudReview = async () => {
+    if (!selectedRequest) return;
+    const reason = fraudReason.trim();
+    if (reason.length < 10) {
+      setFraudError(t("lender.fraudReasonTooShort"));
+      return;
+    }
+
+    setFraudSubmitting(true);
+    setFraudError("");
+    try {
+      const data = await request(
+        `/loans/requests/${selectedRequest}/fraud-review`,
+        {
+          method: "POST",
+          body: JSON.stringify({ reason }),
+        },
+      );
+      setRequestDetail((current) =>
+        current ? { ...current, fraudReview: data.fraudReview } : current,
+      );
+      setFraudReason("");
+    } catch (error) {
+      setFraudError(error.message);
+    } finally {
+      setFraudSubmitting(false);
+    }
+  };
+
   const askCoach = async (event) => {
     event?.preventDefault();
     const asked = chatQuestion.trim();
@@ -247,10 +297,28 @@ export default function LenderDashboard({ session, onLogout }) {
     resetDetail();
   };
 
+  const changeSection = (section) => {
+    setActiveSection(section);
+    if (selectedRequest) resetDetail();
+    window.history.pushState({}, "", `?section=${encodeURIComponent(section)}`);
+  };
+
+  const openFraudRequest = useCallback(
+    (requestId) => {
+      setActiveSection("fraud");
+      openRequest(requestId, { mode: "fraud" });
+    },
+    [openRequest],
+  );
+
   return (
     <LenderDashboardView
       session={session}
       onLogout={onLogout}
+      activeSection={activeSection}
+      onSectionChange={changeSection}
+      reviewMode={reviewMode}
+      onOpenFraudRequest={openFraudRequest}
       requests={filteredRequests}
       totalRequests={loanRequests.length}
       requestsState={requestsState}
@@ -287,6 +355,11 @@ export default function LenderDashboard({ session, onLogout }) {
       decisionError={decisionError}
       deciding={deciding}
       onSubmitDecision={submitDecision}
+      fraudReason={fraudReason}
+      onFraudReasonChange={setFraudReason}
+      fraudError={fraudError}
+      fraudSubmitting={fraudSubmitting}
+      onSubmitFraudReview={submitFraudReview}
       chatOpen={chatOpen}
       onOpenChat={() => setChatOpen(true)}
       onCloseChat={() => setChatOpen(false)}

@@ -1,12 +1,17 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
-import { Card, Skeleton } from "../ui/primitives";
+import { Card, Skeleton, cx } from "../ui/primitives";
 
 const ChatPanel = lazy(() => import("./ChatPanel"));
 
 export default function ChatWidget({ open, onOpen, onClose, mode, ...chatProps }) {
   const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(false);
   const title = t(mode === "lender" ? "chat.lenderTitle" : "chat.borrowerTitle");
+
+  useEffect(() => {
+    if (!open) setExpanded(false);
+  }, [open]);
 
   return (
     <>
@@ -30,8 +35,13 @@ export default function ChatWidget({ open, onOpen, onClose, mode, ...chatProps }
       )}
 
       {open && (
-        <div className="fixed inset-x-2 bottom-2 z-50 max-h-[calc(100vh-1rem)] sm:bottom-6 sm:left-auto sm:right-6 sm:w-[min(27rem,calc(100vw-3rem))]">
-          <div className="max-h-[calc(100vh-1rem)] overflow-y-auto rounded-2xl shadow-[0_20px_60px_rgba(18,62,48,0.24)] sm:max-h-[calc(100vh-3rem)]">
+        <div
+          className={cx(
+            "aira-chat-window fixed inset-x-2 bottom-2 z-50 max-h-[calc(100vh-1rem)] sm:bottom-6 sm:left-auto sm:right-6 sm:w-[min(27rem,calc(100vw-3rem))]",
+            expanded && "aira-chat-window-expanded",
+          )}
+        >
+          <div className="aira-chat-window-surface max-h-[calc(100vh-1rem)] overflow-y-auto rounded-2xl shadow-[0_20px_60px_rgba(18,62,48,0.24)] sm:max-h-[calc(100vh-3rem)]">
             <Suspense
               fallback={
                 <Card className="border-brand-200 p-4">
@@ -40,7 +50,14 @@ export default function ChatWidget({ open, onOpen, onClose, mode, ...chatProps }
                 </Card>
               }
             >
-              <ChatPanel embedded mode={mode} onClose={onClose} {...chatProps} />
+              <ChatPanel
+                embedded
+                mode={mode}
+                onClose={onClose}
+                expanded={expanded}
+                onToggleSize={() => setExpanded((value) => !value)}
+                {...chatProps}
+              />
             </Suspense>
           </div>
         </div>

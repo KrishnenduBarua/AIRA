@@ -17,10 +17,24 @@ export const LANGUAGES = [
 ];
 
 const en = {
+  intro: {
+    label: "AIRA introduction",
+    studio: "Alternative credit intelligence",
+    beat1Title: "Your everyday record",
+    beat1Body: "A bKash or Nagad statement you choose to share.",
+    beat2Title: "An explainable profile",
+    beat2Body: "Habits turned into signals you can actually read.",
+    beat3Title: "A human decides",
+    beat3Body: "Lenders review the evidence. AIRA never decides for them.",
+    tagline: "A clearer path to trusted credit.",
+    enter: "Enter AIRA",
+    skip: "Skip",
+  },
   app: {
     name: "AIRA",
     tagline: "Alternative Credit Intelligence",
     skipToContent: "Skip to main content",
+    backToLanding: "Home",
     borrower: "Borrower",
     lender: "Lender",
     adminPortal: "Admin portal",
@@ -43,6 +57,9 @@ const en = {
     optional: "optional",
     required: "required",
     showMore: "Show more",
+    showDetails: "Show details",
+    expand: "Expand",
+    collapse: "Collapse",
     of: "of",
     step: "Step",
     done: "Done",
@@ -71,9 +88,15 @@ const en = {
       phone: "We send a 6-digit code to your mobile number.",
       identity: "Enter your details exactly as they appear on your NID.",
       consent: "You choose what AIRA may look at.",
-      statement: "Upload your bKash or bank statement.",
+      statement: "Upload your bKash or Nagad statement.",
       profile: "See your trust tier and what to improve.",
     },
+    phoneMfsLabel: "Mobile number (your bKash / Nagad number)",
+    phoneMfsHelp:
+      "Use the number you send and receive money with — your bKash, Nagad, or Rocket number. It is also the password that opens your statement PDF.",
+    phoneLoginHelp: "The mobile number you signed up with.",
+    phoneLenderHelp:
+      "The mobile number your organisation was approved with.",
     sendOtp: "Send code",
     sending: "Sending…",
     otpLabel: "6-digit code",
@@ -128,12 +151,20 @@ const en = {
   borrower: {
     welcome: "Welcome, {name}",
     subtitle: "Build your trust profile and apply to lenders.",
+    profile: "Profile",
+    profileTitle: "Your profile",
+    profileHelp: "The identity details you provided during signup.",
+    profilePasswordNote: "Your password is protected and cannot be displayed.",
+    profileDocuments: "Your NID documents",
+    profileDocumentsHelp: "These are the NID photos you uploaded during signup.",
+    openDocument: "Open document",
+    joined: "Account created",
     journey: "Your journey",
     journeyHelp: "Finish each step to unlock more lenders.",
     tierTitle: "Your trust tier",
     noTierTitle: "You do not have a trust profile yet",
     noTierBody:
-      "Upload one mobile-money or bank statement and we will build your trust profile. It usually takes less than a minute.",
+      "Upload one bKash or Nagad statement and we will build your trust profile. It usually takes less than a minute.",
     tierNote:
       "AIRA does not approve or reject loans. A person at the lending organisation makes that decision.",
     tiers: {
@@ -216,13 +247,13 @@ const en = {
   },
   upload: {
     title: "Upload your statement",
-    help: "Upload a bKash, Nagad, or bank statement so we can build your trust profile.",
+    help: "Upload your bKash or Nagad statement so we can build your trust profile.",
     chooseFile: "Choose a file",
     changeFile: "Choose a different file",
     supported: "Accepted files: PDF or CSV",
     sizeLimit: "Maximum size: 10 MB",
     sourceHelp:
-      "You can download a statement from your bKash or Nagad app, or ask your bank for one.",
+      "You can download the statement straight from your bKash or Nagad app.",
     selected: "Selected: {name} ({size})",
     start: "Upload and build my profile",
     steps: {
@@ -243,6 +274,30 @@ const en = {
       "That file type is not supported. Please upload a PDF or CSV statement.",
     tooLarge: "That file is larger than 10 MB. Please upload a smaller statement.",
     consentFirst: "Please give consent above before uploading.",
+    passwordToggle: "My statement PDF asks for a password",
+    passwordLabel: "Statement password",
+    passwordHelp:
+      "bKash and Nagad lock the statement PDF with the mobile number of that account. Type that number here, for example 01XXXXXXXXX.",
+    passwordPlaceholder: "01XXXXXXXXX",
+    passwordShow: "Show password",
+    passwordHide: "Hide password",
+    passwordPrivacy:
+      "The password is used once to open the file and is never saved.",
+    passwordUseMine: "Use my number {phone}",
+    errors: {
+      password_required:
+        "This statement is locked. Enter the mobile number of the bKash or Nagad account to open it.",
+      password_incorrect:
+        "That password did not open the statement. Check the mobile number, for example 01XXXXXXXXX.",
+      no_text_layer:
+        "We could not read any text in this PDF. Please download the original statement from your bKash or Nagad app instead of a screenshot or scan.",
+      unreadable_pdf:
+        "This PDF could not be opened. Please download the statement again and retry.",
+      no_transactions:
+        "We could not find any transactions in this statement. Please upload a statement that lists your transactions.",
+      unsupported_type:
+        "That file type is not supported. Please upload a PDF or CSV statement.",
+    },
   },
   lenders: {
     title: "Lending organisations",
@@ -286,6 +341,8 @@ const en = {
     failed: "The helper could not answer. Your question was kept.",
     open: "Open AIRA helper",
     close: "Close AIRA helper",
+    expand: "Expand chat",
+    collapse: "Reduce chat",
     grounding: {
       label: "Based on",
       score_factors: "Score factors",
@@ -315,6 +372,16 @@ const en = {
     workspace: "Lender workspace",
     welcome: "Welcome, {name}",
     subtitle: "Review applicants and make lending decisions.",
+    navigation: "Lender navigation",
+    navOverview: "Overview",
+    navApplications: "Applications",
+    navFraud: "Fraud referrals",
+    section: {
+      overview: "Overview",
+      applications: "Applications",
+      fraud: "Fraud referrals",
+    },
+    sidebarNote: "Review with evidence. Final lending decisions stay with you.",
     inbox: "Loan requests",
     inboxHelp:
       "Applicants who applied to your organisation. Open one to review their profile, statements, and trust score.",
@@ -334,6 +401,8 @@ const en = {
     lookupHelp: "Enter a borrower ID or phone number to view their trust score.",
     lookupPlaceholder: "Borrower ID or phone",
     loadScore: "Load score",
+    searchTitle: "Find a borrower and review their score",
+    viewFullAnalysis: "View full analysis",
     profile: "Applicant profile",
     trustScore: "Trust score",
     scoreOf: "{score} / 100",
@@ -343,6 +412,8 @@ const en = {
     factors: "Contributing factors",
     factorsHelp:
       "SHAP contributions from the scoring model, strongest first. Positive values support the score; negative values reduce it.",
+    showAllFactors: "Show all {count} factors",
+    showTopFactors: "Show top factors only",
     supporting: "Supports",
     reducing: "Reduces",
     seasonality: "Income pattern",
@@ -371,6 +442,35 @@ const en = {
     decided: "Decision recorded: {status}",
     decidedReason: "Reason given: {reason}",
     aiLabel: "AI decision support — not a decision",
+    fraudReview: "Fraud review",
+    fraudReviewHelp: "Refer a concern to an admin for human review. This does not decide the loan.",
+    fraudPageHelp: "Review a concern separately from the main borrower application queue.",
+    fraudReasonLabel: "Why should admin review this applicant?",
+    fraudReasonHelp: "Describe the specific mismatch, document concern, or transaction pattern.",
+    fraudReasonPlaceholder: "Example: The NID name and account name do not match…",
+    fraudReasonTooShort: "Please describe the concern in at least 10 characters.",
+    sendFraudReview: "Refer to admin",
+    fraudSubmitting: "Sending referral…",
+    adminNote: "Admin note",
+    fraudStatus: {
+      pending: "Waiting for admin review",
+      reviewing: "Admin is reviewing",
+      cleared: "Cleared by admin",
+    confirmed: "Fraud concern confirmed",
+    },
+    fraudQueueTitle: "Fraud review queue",
+    fraudQueueHelp: "Open an application here to refer a concern to admin without mixing it into the borrower list.",
+    noFraudReferrals: "No applications are available for fraud review.",
+    notReferred: "Not referred",
+    reportsTitle: "Decision overview",
+    reportsHelp: "A quick snapshot of the applications in your lending workspace.",
+    reportsNote: "Reports will expand as more applications and review history become available.",
+    checklist: "Review checklist",
+    checklistHelp: "Use these checks to keep each decision consistent.",
+    checkNameMatch: "Applicant name matches the NID",
+    checkPhoneMatch: "Phone number is consistent across records",
+    checkStatements: "Statements cover a useful period",
+    checkAnomalies: "Income and transaction anomalies reviewed",
   },
   admin: {
     portal: "Admin portal",
@@ -392,6 +492,30 @@ const en = {
     docsHelp: "Accepted files: image or PDF, up to 10 MB each.",
     approvedNote: "Approved — organisation must still complete OTP signup",
     backToApproval: "Back to lender approval",
+    borrowers: "Borrowers",
+    borrowersHelp: "Review borrower signup details and uploaded NID documents.",
+    noBorrowers: "No borrower accounts found.",
+    nidDocuments: "Uploaded NID documents",
+    nidDocumentsHelp: "Check both sides of the NID here. Borrowers do not need a separate approval step.",
+    noNidDocuments: "No NID documents uploaded.",
+    nidComplete: "NID files complete",
+    nidIncomplete: "NID files incomplete",
+    nidStatus: "NID status",
+    createdAt: "Account created",
+    deleteBorrower: "Delete borrower account",
+    deleting: "Deleting…",
+    deleteBorrowerConfirm: "Delete this borrower account and its uploaded records? This cannot be undone.",
+    fraudReviews: "Fraud reviews",
+    fraudReviewsHelp: "Review cases referred by lenders and record the human outcome.",
+    noFraudReviews: "No fraud reviews have been referred.",
+    fraudReason: "Lender's concern",
+    referredBy: "Referred by",
+    scoreSummary: "Score summary",
+    reviewStatus: "Review status (pending, reviewing, cleared, or confirmed)",
+    adminNotes: "Admin review notes",
+    adminNotesHelp: "Record what you checked and why you chose this outcome.",
+    savingReview: "Saving review…",
+    saveReview: "Save review",
   },
   errors: {
     generic: "Something went wrong. Please try again.",
@@ -403,10 +527,24 @@ const en = {
 };
 
 const bn = {
+  intro: {
+    label: "AIRA পরিচিতি",
+    studio: "বিকল্প ক্রেডিট ইন্টেলিজেন্স",
+    beat1Title: "আপনার প্রতিদিনের রেকর্ড",
+    beat1Body: "আপনি নিজে বেছে দেওয়া বিকাশ বা নগদ স্টেটমেন্ট।",
+    beat2Title: "ব্যাখ্যাযোগ্য প্রোফাইল",
+    beat2Body: "অভ্যাসগুলো এমন সংকেতে, যা সত্যিই বোঝা যায়।",
+    beat3Title: "সিদ্ধান্ত নেন মানুষ",
+    beat3Body: "ঋণদাতা প্রমাণ দেখে সিদ্ধান্ত নেন। AIRA কখনো নেয় না।",
+    tagline: "বিশ্বাসযোগ্য ক্রেডিটের সহজ পথ।",
+    enter: "AIRA-তে যান",
+    skip: "এড়িয়ে যান",
+  },
   app: {
     name: "AIRA",
     tagline: "বিকল্প ক্রেডিট ইন্টেলিজেন্স",
     skipToContent: "মূল অংশে যান",
+    backToLanding: "হোম",
     borrower: "ঋণগ্রহীতা",
     lender: "ঋণদাতা",
     adminPortal: "অ্যাডমিন পোর্টাল",
@@ -418,6 +556,9 @@ const bn = {
   common: {
     retry: "আবার চেষ্টা করুন",
     refresh: "রিফ্রেশ করুন",
+    showDetails: "বিস্তারিত",
+    expand: "বিস্তারিত দেখুন",
+    collapse: "সংক্ষিপ্ত করুন",
     back: "পেছনে",
     backToDashboard: "ড্যাশবোর্ডে ফিরুন",
     logout: "লগ আউট",
@@ -457,9 +598,14 @@ const bn = {
       phone: "আপনার মোবাইলে ৬ সংখ্যার একটি কোড পাঠানো হবে।",
       identity: "আপনার NID-তে যেভাবে লেখা আছে, ঠিক সেভাবে তথ্য দিন।",
       consent: "AIRA কী দেখতে পারবে তা আপনি ঠিক করবেন।",
-      statement: "আপনার বিকাশ বা ব্যাংক স্টেটমেন্ট আপলোড করুন।",
+      statement: "আপনার বিকাশ বা নগদ স্টেটমেন্ট আপলোড করুন।",
       profile: "আপনার ট্রাস্ট টিয়ার ও করণীয় দেখুন।",
     },
+    phoneMfsLabel: "মোবাইল নম্বর (আপনার বিকাশ / নগদ নম্বর)",
+    phoneMfsHelp:
+      "যে নম্বর দিয়ে আপনি টাকা পাঠান ও গ্রহণ করেন — আপনার বিকাশ, নগদ বা রকেট নম্বরটি দিন। এই নম্বরটিই আপনার স্টেটমেন্ট PDF-এর পাসওয়ার্ড।",
+    phoneLoginHelp: "যে মোবাইল নম্বর দিয়ে অ্যাকাউন্ট খুলেছেন।",
+    phoneLenderHelp: "আপনার প্রতিষ্ঠান যে মোবাইল নম্বর দিয়ে অনুমোদিত হয়েছে।",
     sendOtp: "কোড পাঠান",
     sending: "পাঠানো হচ্ছে…",
     otpLabel: "৬ সংখ্যার কোড",
@@ -514,12 +660,20 @@ const bn = {
   borrower: {
     welcome: "স্বাগতম, {name}",
     subtitle: "আপনার ট্রাস্ট প্রোফাইল তৈরি করুন এবং ঋণদাতার কাছে আবেদন করুন।",
+    profile: "প্রোফাইল",
+    profileTitle: "আপনার প্রোফাইল",
+    profileHelp: "সাইন আপের সময় দেওয়া পরিচয় সংক্রান্ত তথ্য।",
+    profilePasswordNote: "আপনার পাসওয়ার্ড সুরক্ষিত এবং দেখানো যাবে না।",
+    profileDocuments: "আপনার NID নথি",
+    profileDocumentsHelp: "সাইন আপের সময় আপলোড করা NID ছবিগুলো এখানে দেখুন।",
+    openDocument: "নথি খুলুন",
+    joined: "অ্যাকাউন্ট তৈরি",
     journey: "আপনার ধাপগুলো",
     journeyHelp: "প্রতিটি ধাপ শেষ করলে আরও ঋণদাতা আপনার জন্য খুলবে।",
     tierTitle: "আপনার ট্রাস্ট টিয়ার",
     noTierTitle: "আপনার এখনো ট্রাস্ট প্রোফাইল নেই",
     noTierBody:
-      "একটি মোবাইল ব্যাংকিং বা ব্যাংক স্টেটমেন্ট আপলোড করুন, আমরা আপনার প্রোফাইল তৈরি করে দেব। সাধারণত এক মিনিটেরও কম সময় লাগে।",
+      "একটি বিকাশ বা নগদ স্টেটমেন্ট আপলোড করুন, আমরা আপনার প্রোফাইল তৈরি করে দেব। সাধারণত এক মিনিটেরও কম সময় লাগে।",
     tierNote:
       "AIRA ঋণ অনুমোদন বা বাতিল করে না। সিদ্ধান্ত নেন ঋণদাতা প্রতিষ্ঠানের একজন মানুষ।",
     tiers: {
@@ -602,13 +756,13 @@ const bn = {
   },
   upload: {
     title: "আপনার স্টেটমেন্ট আপলোড করুন",
-    help: "বিকাশ, নগদ বা ব্যাংক স্টেটমেন্ট দিন, আমরা আপনার ট্রাস্ট প্রোফাইল তৈরি করব।",
+    help: "আপনার বিকাশ বা নগদ স্টেটমেন্ট দিন, আমরা আপনার ট্রাস্ট প্রোফাইল তৈরি করব।",
     chooseFile: "ফাইল বাছাই করুন",
     changeFile: "অন্য ফাইল বাছাই করুন",
     supported: "গ্রহণযোগ্য ফাইল: PDF বা CSV",
     sizeLimit: "সর্বোচ্চ আকার: ১০ MB",
     sourceHelp:
-      "বিকাশ বা নগদ অ্যাপ থেকে স্টেটমেন্ট নামাতে পারেন, অথবা ব্যাংক থেকে চেয়ে নিতে পারেন।",
+      "বিকাশ বা নগদ অ্যাপ থেকেই সরাসরি স্টেটমেন্টটি নামিয়ে নিতে পারেন।",
     selected: "বাছাই করা হয়েছে: {name} ({size})",
     start: "আপলোড করে প্রোফাইল তৈরি করুন",
     steps: {
@@ -628,6 +782,30 @@ const bn = {
     unsupported: "এই ধরনের ফাইল চলবে না। PDF বা CSV স্টেটমেন্ট দিন।",
     tooLarge: "ফাইলটি ১০ MB-এর বেশি। ছোট একটি স্টেটমেন্ট দিন।",
     consentFirst: "আপলোডের আগে উপরে সম্মতি দিন।",
+    passwordToggle: "আমার স্টেটমেন্ট PDF পাসওয়ার্ড চায়",
+    passwordLabel: "স্টেটমেন্টের পাসওয়ার্ড",
+    passwordHelp:
+      "বিকাশ ও নগদ স্টেটমেন্ট PDF-টি ওই অ্যাকাউন্টের মোবাইল নম্বর দিয়ে লক করে। সেই নম্বরটি এখানে লিখুন, যেমন 01XXXXXXXXX।",
+    passwordPlaceholder: "01XXXXXXXXX",
+    passwordShow: "পাসওয়ার্ড দেখান",
+    passwordHide: "পাসওয়ার্ড লুকান",
+    passwordPrivacy:
+      "পাসওয়ার্ডটি শুধু একবার ফাইল খুলতে ব্যবহার হয়, কোথাও সংরক্ষণ করা হয় না।",
+    passwordUseMine: "আমার নম্বর {phone} ব্যবহার করুন",
+    errors: {
+      password_required:
+        "স্টেটমেন্টটি লক করা। খুলতে বিকাশ বা নগদ অ্যাকাউন্টের মোবাইল নম্বরটি লিখুন।",
+      password_incorrect:
+        "এই পাসওয়ার্ডে স্টেটমেন্ট খোলেনি। মোবাইল নম্বরটি মিলিয়ে দেখুন, যেমন 01XXXXXXXXX।",
+      no_text_layer:
+        "এই PDF-এ পড়ার মতো কোনো লেখা পাওয়া যায়নি। স্ক্রিনশট বা স্ক্যান নয়, বিকাশ বা নগদ অ্যাপ থেকে আসল স্টেটমেন্টটি নামিয়ে দিন।",
+      unreadable_pdf:
+        "PDF-টি খোলা যায়নি। স্টেটমেন্টটি আবার নামিয়ে চেষ্টা করুন।",
+      no_transactions:
+        "এই স্টেটমেন্টে কোনো লেনদেন পাওয়া যায়নি। লেনদেনের তালিকাসহ স্টেটমেন্ট দিন।",
+      unsupported_type:
+        "এই ধরনের ফাইল চলবে না। PDF বা CSV স্টেটমেন্ট দিন।",
+    },
   },
   lenders: {
     title: "ঋণদাতা প্রতিষ্ঠান",
@@ -671,6 +849,8 @@ const bn = {
     failed: "সহায়ক উত্তর দিতে পারেনি। আপনার প্রশ্নটি রাখা হয়েছে।",
     open: "AIRA সহায়ক খুলুন",
     close: "AIRA সহায়ক বন্ধ করুন",
+    expand: "চ্যাট বড় করুন",
+    collapse: "চ্যাট ছোট করুন",
     grounding: {
       label: "ভিত্তি",
       score_factors: "স্কোরের কারণসমূহ",
