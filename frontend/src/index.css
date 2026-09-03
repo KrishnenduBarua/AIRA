@@ -3,21 +3,29 @@
 @tailwind utilities;
 
 :root {
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, "Noto Sans Bengali",
+    "Hind Siliguri", sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: #0f172a;
-  background: #f8fafc;
+  background: #f1f5f9;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  /* The layout is designed to fit 320px; this guarantees no page-level
+     sideways scroll if a single long word or number slips through. */
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 * {
@@ -26,6 +34,47 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* A single visible focus treatment for every interactive element, so keyboard
+   users always know where they are. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid #2f4d3f;
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+/* Bangla text needs a little more line height to stay legible. */
+:lang(bn) {
+  line-height: 1.7;
+}
+
+/* Long tokens — file names, NID numbers, IDs — must wrap rather than push the
+   layout wider than the viewport. */
+p,
+li,
+dd,
+h1,
+h2,
+h3,
+h4 {
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
