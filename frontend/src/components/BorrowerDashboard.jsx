@@ -31,8 +31,6 @@ export default function BorrowerDashboard({ session, onLogout }) {
   // bKash and Nagad statement PDFs are locked with the account's own mobile
   // number. The password never leaves this component except as one field on the
   // upload request, and is cleared as soon as a statement is accepted.
-  const [statementPassword, setStatementPassword] = useState("");
-  const [passwordNeeded, setPasswordNeeded] = useState(false);
   const fileInputRef = useRef(null);
 
   const [lenders, setLenders] = useState([]);
@@ -181,9 +179,6 @@ export default function BorrowerDashboard({ session, onLogout }) {
     setUploadPhase("idle");
     setUploadProgress(0);
 
-    setPasswordNeeded(false);
-    setStatementPassword("");
-
     if (!SUPPORTED_EXTENSIONS.test(file.name)) {
       setSelectedFile(null);
       setUploadError(t("upload.unsupported"));
@@ -214,9 +209,6 @@ export default function BorrowerDashboard({ session, onLogout }) {
     try {
       const body = new FormData();
       body.append("statement", selectedFile);
-      if (statementPassword.trim()) {
-        body.append("password", statementPassword.trim());
-      }
 
       const uploaded = await uploadWithProgress("/statements/upload", body, {
         onProgress: (ratio) => {
@@ -243,20 +235,12 @@ export default function BorrowerDashboard({ session, onLogout }) {
         filename: uploaded.statement?.filename || selectedFile.name,
       });
       setUploadPhase("done");
-      setStatementPassword("");
-      setPasswordNeeded(false);
       // Chat answers are grounded in the score, so an old transcript's
       // context is stale once a new score lands.
       setChatGrounding("");
     } catch (error) {
       // A locked PDF is not a failure the borrower should have to decode: the
       // server names the reason, so the password field is opened for them.
-      if (
-        error.code === "password_required" ||
-        error.code === "password_incorrect"
-      ) {
-        setPasswordNeeded(true);
-      }
       setUploadError(uploadErrorMessage(error));
       setUploadPhase("error");
     }
@@ -271,8 +255,6 @@ export default function BorrowerDashboard({ session, onLogout }) {
 
   const clearFile = () => {
     setSelectedFile(null);
-    setStatementPassword("");
-    setPasswordNeeded(false);
     resetUpload();
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -369,11 +351,6 @@ export default function BorrowerDashboard({ session, onLogout }) {
       uploadProgress={uploadProgress}
       uploadError={uploadError}
       uploadResult={uploadResult}
-      statementPassword={statementPassword}
-      onStatementPasswordChange={setStatementPassword}
-      passwordNeeded={passwordNeeded}
-      onRevealPassword={() => setPasswordNeeded(true)}
-      accountPhone={session.user.phone || ""}
       question={chatQuestion}
       messages={chatMessages}
       chatLoading={chatLoading}

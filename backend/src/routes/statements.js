@@ -147,7 +147,8 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
     if (!password) {
       fs.unlinkSync(filePath);
       return res.status(400).json({
-        message: "Your account phone number is not available for statement verification.",
+        message:
+          "Your account phone number is not available for statement verification.",
       });
     }
 

@@ -13,7 +13,6 @@ import {
   ProgressBar,
   Skeleton,
   SkeletonList,
-  TextInput,
   cx,
 } from "../ui/primitives";
 import ChatWidget from "./ChatWidget";
@@ -457,17 +456,10 @@ function UploadCard({
   progress,
   error,
   result,
-  statementPassword,
-  onStatementPasswordChange,
-  passwordNeeded,
-  onRevealPassword,
-  accountPhone,
 }) {
   const { t } = useLanguage();
   const active = UPLOAD_STEPS.includes(phase);
   const activeIndex = UPLOAD_STEPS.indexOf(phase);
-  const [showPassword, setShowPassword] = useState(false);
-  const isPdf = /\.pdf$/i.test(selectedFile?.name || "");
 
   return (
     <Card className="borrower-upload-card">
@@ -526,52 +518,6 @@ function UploadCard({
         </div>
       )}
 
-      {selectedFile && isPdf && !passwordNeeded && !active && (
-        <button
-          type="button"
-          onClick={onRevealPassword}
-          className="mt-3 text-sm font-medium text-brand-700 underline underline-offset-2"
-        >
-          {t("upload.passwordToggle")}
-        </button>
-      )}
-
-      {selectedFile && isPdf && passwordNeeded && (
-        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <TextInput
-            label={t("upload.passwordLabel")}
-            help={t("upload.passwordHelp")}
-            type={showPassword ? "text" : "password"}
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder={t("upload.passwordPlaceholder")}
-            value={statementPassword}
-            disabled={active}
-            onChange={(event) => onStatementPasswordChange(event.target.value)}
-          />
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setShowPassword((value) => !value)}
-              className="text-xs font-medium text-brand-700 underline underline-offset-2"
-            >
-              {t(showPassword ? "upload.passwordHide" : "upload.passwordShow")}
-            </button>
-            {accountPhone && statementPassword !== accountPhone && !active && (
-              <button
-                type="button"
-                onClick={() => onStatementPasswordChange(accountPhone)}
-                className="text-xs font-medium text-brand-700 underline underline-offset-2"
-              >
-                {t("upload.passwordUseMine", { phone: accountPhone })}
-              </button>
-            )}
-          </div>
-          <p className="mt-2 text-xs leading-5 text-slate-500">
-            {t("upload.passwordPrivacy")}
-          </p>
-        </div>
-      )}
 
       {error && (
         <Alert
@@ -882,11 +828,6 @@ export default function BorrowerDashboardView({
   uploadProgress,
   uploadError,
   uploadResult,
-  statementPassword,
-  onStatementPasswordChange,
-  passwordNeeded,
-  onRevealPassword,
-  accountPhone,
   question,
   messages,
   chatLoading,
@@ -998,11 +939,6 @@ export default function BorrowerDashboardView({
           progress={uploadProgress}
           error={uploadError}
           result={uploadResult}
-          statementPassword={statementPassword}
-          onStatementPasswordChange={onStatementPasswordChange}
-          passwordNeeded={passwordNeeded}
-          onRevealPassword={onRevealPassword}
-          accountPhone={accountPhone}
         />
       </div>
 
