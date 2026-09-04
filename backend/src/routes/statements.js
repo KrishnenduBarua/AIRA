@@ -261,7 +261,9 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
       ].includes(error.code);
     const status = databaseConflict
       ? 409
-      : upstreamUnavailable || databaseUnavailable
+      : upstreamUnavailable ||
+          databaseUnavailable ||
+          stage === "supabase-storage"
         ? 503
         : 500;
     return res.status(status).json({
@@ -269,9 +271,11 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
         ? "The statement processing service is unavailable."
         : databaseUnavailable
           ? "The database service is unavailable."
-          : databaseConflict
-            ? "This statement was already recorded. Please try again."
-            : "Failed to process statement upload.",
+          : stage === "supabase-storage"
+            ? "Supabase Storage is unavailable or misconfigured."
+            : databaseConflict
+              ? "This statement was already recorded. Please try again."
+              : "Failed to process statement upload.",
       stage,
       details:
         process.env.NODE_ENV === "production"
