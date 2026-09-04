@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useLanguage } from "../i18n";
 
-// The exact demo URL was not present in the repository, so this keeps the
-// YouTube destination in one place until the final video URL is supplied.
+// Keep the YouTube destination in one place so the demo CTA and thumbnail
+// always open the same video.
 const DEMO_VIDEO_URL =
   "https://youtu.be/dMALdiDzFfw";
 
@@ -460,13 +460,11 @@ export default function LandingPage({ revealReady = true }) {
             style={{ "--reveal-delay": "120ms" }}
           >
             <div className="video-screen">
-              <div className="video-interface">
-                <span className="video-dot" /><span /><span /><b>AIRA / product walkthrough</b>
-              </div>
-              <div className="video-dashboard">
-                <div className="video-sidebar"><i /><i /><i /><i /></div>
-                <div className="video-content"><strong>Trust profile</strong><div className="video-chart"><i /><i /><i /><i /><i /></div><div className="video-lines"><i /><i /><i /></div></div>
-              </div>
+              <img
+                className="video-thumbnail"
+                src="/aira-demo-thumbnail.png"
+                alt="AIRA demo video thumbnail"
+              />
               <div className="video-play">▶</div>
             </div>
             <div className="video-caption"><span>{copy.demo.caption}</span><b>Watch on YouTube ↗</b></div>
