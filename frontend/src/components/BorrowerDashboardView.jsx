@@ -46,7 +46,14 @@ function formatDate(value, language) {
   });
 }
 
-function BorrowerProfileCard({ profile, state, error, onRetry, onClose, language }) {
+function BorrowerProfileCard({
+  profile,
+  state,
+  error,
+  onRetry,
+  onClose,
+  language,
+}) {
   const { t } = useLanguage();
 
   return (
@@ -89,18 +96,32 @@ function BorrowerProfileCard({ profile, state, error, onRetry, onClose, language
               [t("auth.address"), profile.permanentAddress || "—"],
               [t("borrower.joined"), formatDate(profile.createdAt, language)],
             ].map(([label, value]) => (
-              <div key={label} className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-                <p className="mt-1 break-words text-sm text-slate-900">{value}</p>
+              <div
+                key={label}
+                className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {label}
+                </p>
+                <p className="mt-1 break-words text-sm text-slate-900">
+                  {value}
+                </p>
               </div>
             ))}
           </div>
 
           <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50 p-4">
-            <p className="text-sm font-semibold text-brand-900">{t("borrower.profileDocuments")}</p>
-            <p className="mt-1 text-sm leading-6 text-slate-700">{t("borrower.profileDocumentsHelp")}</p>
+            <p className="text-sm font-semibold text-brand-900">
+              {t("borrower.profileDocuments")}
+            </p>
+            <p className="mt-1 text-sm leading-6 text-slate-700">
+              {t("borrower.profileDocumentsHelp")}
+            </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {[ ["front", t("auth.nidFront")], ["back", t("auth.nidBack")] ].map(([side, label]) =>
+              {[
+                ["front", t("auth.nidFront")],
+                ["back", t("auth.nidBack")],
+              ].map(([side, label]) =>
                 profile.documents?.[side] ? (
                   <a
                     key={side}
@@ -358,7 +379,9 @@ function CategoriesCard({ profile }) {
                   className={cx(
                     "h-full flex-1 rounded-full",
                     index <=
-                      ["attention", "building", "strong"].indexOf(category.level)
+                      ["attention", "building", "strong"].indexOf(
+                        category.level,
+                      )
                       ? LEVEL_BARS[category.level]
                       : "bg-slate-200",
                   )}
@@ -517,7 +540,6 @@ function UploadCard({
           )}
         </div>
       )}
-
 
       {error && (
         <Alert
@@ -871,18 +893,27 @@ export default function BorrowerDashboardView({
         />
       )}
 
-      <div className="dashboard-summary borrower-summary" aria-label={t("borrower.tierTitle")}>
+      <div
+        className="dashboard-summary borrower-summary"
+        aria-label={t("borrower.tierTitle")}
+      >
         <Card as="article" className="dashboard-stat">
-          <span className="dashboard-stat-icon" aria-hidden="true">↗</span>
+          <span className="dashboard-stat-icon" aria-hidden="true">
+            ↗
+          </span>
           <div>
             <p className="dashboard-stat-label">{t("borrower.tierTitle")}</p>
             <p className="dashboard-stat-value">
-              {profile?.hasScore ? t(`borrower.tiers.${profile.tier}`) : t("common.pending")}
+              {profile?.hasScore
+                ? t(`borrower.tiers.${profile.tier}`)
+                : t("common.pending")}
             </p>
           </div>
         </Card>
         <Card as="article" className="dashboard-stat">
-          <span className="dashboard-stat-icon" aria-hidden="true">✓</span>
+          <span className="dashboard-stat-icon" aria-hidden="true">
+            ✓
+          </span>
           <div>
             <p className="dashboard-stat-label">{t("consent.title")}</p>
             <p className="dashboard-stat-value">
@@ -891,12 +922,16 @@ export default function BorrowerDashboardView({
           </div>
         </Card>
         <Card as="article" className="dashboard-stat">
-          <span className="dashboard-stat-icon" aria-hidden="true">◌</span>
+          <span className="dashboard-stat-icon" aria-hidden="true">
+            ◌
+          </span>
           <div>
             <p className="dashboard-stat-label">{t("borrower.historyTitle")}</p>
             <p className="dashboard-stat-value">
               {profile?.history
-                ? t("borrower.historyMonths", { months: profile.history.monthsOfHistory })
+                ? t("borrower.historyMonths", {
+                    months: profile.history.monthsOfHistory,
+                  })
                 : t("common.pending")}
             </p>
           </div>
@@ -914,8 +949,14 @@ export default function BorrowerDashboardView({
       <div className="dashboard-section-heading">
         <div>
           <p className="dashboard-section-kicker">{t("borrower.tierTitle")}</p>
-          <h2>{profile?.hasScore ? t("borrower.categories") : t("upload.title")}</h2>
-          <p>{profile?.hasScore ? t("borrower.categoriesHelp") : t("upload.help")}</p>
+          <h2>
+            {profile?.hasScore ? t("borrower.categories") : t("upload.title")}
+          </h2>
+          <p>
+            {profile?.hasScore
+              ? t("borrower.categoriesHelp")
+              : t("upload.help")}
+          </p>
         </div>
       </div>
 
