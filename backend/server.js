@@ -3,7 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
-const { port } = require("./src/config");
+const { port, corsOrigins } = require("./src/config");
 
 const authRoutes = require("./src/routes/auth");
 const statementRoutes = require("./src/routes/statements");
@@ -21,7 +21,11 @@ const localFrontendOrigin =
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || localFrontendOrigin.test(origin)) {
+      if (
+        !origin ||
+        localFrontendOrigin.test(origin) ||
+        corsOrigins.includes(origin)
+      ) {
         callback(null, true);
         return;
       }

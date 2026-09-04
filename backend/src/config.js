@@ -26,4 +26,11 @@ module.exports = {
   otpMode: (process.env.OTP_MODE || "live").toLowerCase(),
   otpExpiryMinutes: Number(process.env.OTP_EXPIRY_MINUTES || 5),
   otpLength: Number(process.env.OTP_LENGTH || 6),
+  corsOrigins: (process.env.CORS_ORIGINS || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+  supabaseUrl: process.env.SUPABASE_URL || null,
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || null,
+  supabaseStorageBucket: process.env.SUPABASE_STORAGE_BUCKET || "aira-private",
 };

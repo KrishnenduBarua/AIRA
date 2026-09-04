@@ -23,6 +23,7 @@ backend/src/uploads/
 # Python / ML
 ml-model/.venv/
 ml-model/__pycache__/
+ml-model/**/__pycache__/
 ml-model/.pytest_cache/
 ml-model/*.pyc
 ml-model/.env

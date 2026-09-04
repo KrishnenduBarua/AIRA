@@ -18,6 +18,7 @@ const {
 } = require("../data/db");
 const { requireAuth } = require("../middlewares/validation");
 const { buildLenderInsights } = require("../services/insights");
+const { downloadObject, isStorageObject } = require("../services/storage");
 
 const router = express.Router();
 
@@ -330,6 +331,18 @@ router.get(
       }
 
       const filePath = statement.file_path ?? statement.path;
+      if (isStorageObject(filePath)) {
+        const file = await downloadObject(filePath);
+        if (!file) {
+          return res
+            .status(404)
+            .json({
+              message: "The stored statement file is no longer available.",
+            });
+        }
+        res.type(file.contentType || "application/octet-stream");
+        return res.send(file.buffer);
+      }
       if (!filePath || !fs.existsSync(filePath)) {
         return res.status(404).json({
           message: "The stored statement file is no longer available.",

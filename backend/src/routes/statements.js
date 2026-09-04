@@ -12,6 +12,11 @@ const {
 const { requireAuth } = require("../middlewares/validation");
 const { mlServiceUrl } = require("../config");
 const { historyAdequacy } = require("../services/insights");
+const {
+  isStorageConfigured,
+  objectPath,
+  uploadFile,
+} = require("../services/storage");
 
 const router = express.Router();
 
@@ -82,7 +87,9 @@ function statementErrorResponse(error) {
     status: error.response.status === 400 ? 400 : 422,
     body: {
       code: detail.code,
-      message: STATEMENT_ERROR_MESSAGES[detail.code] || "This statement could not be processed.",
+      message:
+        STATEMENT_ERROR_MESSAGES[detail.code] ||
+        "This statement could not be processed.",
       details: detail.message,
     },
   };
@@ -142,9 +149,21 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
       { headers: featuresForm.getHeaders() },
     );
 
-    const storedName = `${Date.now()}-${req.file.originalname.replace(/\s+/g, "_")}`;
-    const storedPath = path.join(statementDir, storedName);
-    fs.renameSync(filePath, storedPath);
+    const storedPath = isStorageConfigured()
+      ? await uploadFile(
+          filePath,
+          objectPath(`statements/${req.user.id}`, req.file.originalname),
+          req.file.mimetype,
+        )
+      : (() => {
+          const storedName = `${Date.now()}-${req.file.originalname.replace(/\s+/g, "_")}`;
+          const localPath = path.join(statementDir, storedName);
+          fs.renameSync(filePath, localPath);
+          return localPath;
+        })();
+
+    if (isStorageConfigured() && fs.existsSync(filePath))
+      fs.unlinkSync(filePath);
 
     const statementRecord = {
       id: `statement_${Date.now()}`,

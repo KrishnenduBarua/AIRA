@@ -45,6 +45,13 @@ const {
   requireAuth,
   optionalAuth,
 } = require("../middlewares/validation");
+const {
+  downloadObject,
+  isStorageConfigured,
+  isStorageObject,
+  objectPath,
+  uploadFile,
+} = require("../services/storage");
 
 const uploadDir = path.join(__dirname, "..", "uploads", "nid");
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -91,7 +98,7 @@ function setSessionCookie(res, token, role) {
   res.cookie(sessionCookie(role), token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 30 * 60 * 1000,
     path: "/",
   });
@@ -101,7 +108,8 @@ function clearSessionCookie(res) {
   ["borrower", "lender", "admin"].forEach((role) =>
     res.clearCookie(sessionCookie(role), {
       httpOnly: true,
-      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       path: "/",
     }),
   );
@@ -341,6 +349,28 @@ router.post(
     }
 
     const passwordHash = hashPassword(password);
+    const frontPath = frontFile
+      ? isStorageConfigured()
+        ? await uploadFile(
+            frontFile.path,
+            objectPath(`nid/${existingUser.id}`, frontFile.originalname),
+            frontFile.mimetype,
+          )
+        : frontFile.path.replace(/\\/g, "/")
+      : null;
+    const backPath = backFile
+      ? isStorageConfigured()
+        ? await uploadFile(
+            backFile.path,
+            objectPath(`nid/${existingUser.id}`, backFile.originalname),
+            backFile.mimetype,
+          )
+        : backFile.path.replace(/\\/g, "/")
+      : null;
+    if (isStorageConfigured()) {
+      if (frontFile) fs.unlinkSync(frontFile.path);
+      if (backFile) fs.unlinkSync(backFile.path);
+    }
     const user = await updateUser(existingUser.id, {
       name:
         role === "lender"
@@ -352,8 +382,8 @@ router.post(
       nidNumber: role === "lender" ? null : normalizedNid,
       permanentAddress: role === "lender" ? null : permanentAddress,
       passwordHash,
-      nidFrontUrl: frontFile ? frontFile.path.replace(/\\/g, "/") : null,
-      nidBackUrl: backFile ? backFile.path.replace(/\\/g, "/") : null,
+      nidFrontUrl: frontPath,
+      nidBackUrl: backPath,
       role,
       nidVerified: true,
     });
@@ -483,14 +513,23 @@ router.get("/profile/nid/:side", requireAuth, async (req, res) => {
   }
 
   const user = await getUserById(req.user.id);
+  const storedPath =
+    req.params.side === "front" ? user?.nidFrontUrl : user?.nidBackUrl;
   const filePath = safeNidPath(user, req.params.side);
   if (
     !user ||
     user.role !== "borrower" ||
-    !filePath ||
-    !fs.existsSync(filePath)
+    (!filePath && !isStorageObject(storedPath))
   ) {
     return res.status(404).json({ message: "NID document not found." });
+  }
+
+  if (isStorageObject(storedPath)) {
+    const file = await downloadObject(storedPath);
+    if (!file)
+      return res.status(404).json({ message: "NID document not found." });
+    res.type(file.contentType || "application/octet-stream");
+    return res.send(file.buffer);
   }
 
   return res.sendFile(filePath);
