@@ -21,10 +21,11 @@ const localFrontendOrigin =
 app.use(
   cors({
     origin(origin, callback) {
+      const normalizedOrigin = origin?.replace(/\/+$/, "");
       if (
         !origin ||
-        localFrontendOrigin.test(origin) ||
-        corsOrigins.includes(origin)
+        localFrontendOrigin.test(normalizedOrigin) ||
+        corsOrigins.includes(normalizedOrigin)
       ) {
         callback(null, true);
         return;
