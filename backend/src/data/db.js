@@ -1222,6 +1222,7 @@ module.exports = {
   approveLenderApplication,
   completeLenderApplication,
   saveScore,
+  updateScoreAnchor,
   getLatestScoreByUser,
   conversations,
   messages,
