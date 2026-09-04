@@ -121,6 +121,7 @@ router.get("/mine", requireAuth, async (req, res) => {
 });
 
 router.post("/upload", requireAuth, handleUpload, async (req, res) => {
+  let stage = "upload";
   try {
     if (!req.file) {
       return res.status(400).json({ message: "A statement file is required." });
@@ -136,6 +137,7 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
 
     const filePath = req.file.path;
     const fileBuffer = fs.readFileSync(filePath);
+    stage = "database";
     const borrower = await getUserById(req.user.id);
     if (!borrower || borrower.role !== "borrower") {
       fs.unlinkSync(filePath);
@@ -153,6 +155,7 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
       });
     }
 
+    stage = "ml-verification";
     const verificationForm = statementForm(fileBuffer, req.file, password);
     const verificationResponse = await axios.post(
       `${mlServiceUrl}/verify-statement`,
@@ -170,6 +173,7 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
       });
     }
 
+    stage = "ml-feature-extraction";
     const featuresForm = statementForm(fileBuffer, req.file, password);
     const featuresResponse = await axios.post(
       `${mlServiceUrl}/extract-features`,
@@ -177,6 +181,7 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
       { headers: featuresForm.getHeaders(), timeout: 120000 },
     );
 
+    stage = isStorageConfigured() ? "supabase-storage" : "local-storage";
     const storedPath = isStorageConfigured()
       ? await uploadFile(
           filePath,
@@ -204,6 +209,7 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
       extractedFeatures: featuresResponse.data.features || {},
     };
 
+    stage = "database";
     await saveStatement(statementRecord);
     statements.push(statementRecord);
 
@@ -232,6 +238,7 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
     }
 
     console.error("Statement upload error:", {
+      stage,
       message: error.message,
       code: error.code,
       upstreamStatus: error.response?.status,
@@ -243,12 +250,25 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
         error.code,
       );
     const databaseConflict = error.code === "23505";
-    return res.status(databaseConflict ? 409 : 500).json({
+    const databaseUnavailable =
+      stage === "database" &&
+      ["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT", "ENETUNREACH"].includes(
+        error.code,
+      );
+    const status = databaseConflict
+      ? 409
+      : upstreamUnavailable || databaseUnavailable
+        ? 503
+        : 500;
+    return res.status(status).json({
       message: upstreamUnavailable
         ? "The statement processing service is unavailable."
+        : databaseUnavailable
+          ? "The database service is unavailable."
         : databaseConflict
           ? "This statement was already recorded. Please try again."
           : "Failed to process statement upload.",
+      stage,
       details:
         process.env.NODE_ENV === "production"
           ? undefined
