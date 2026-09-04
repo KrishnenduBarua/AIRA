@@ -521,7 +521,6 @@ export default function LandingPage({ revealReady = true }) {
           <nav aria-label={copy.footer.portals}>
             <a href="/app?role=borrower">{copy.footer.borrower}<span aria-hidden="true">↗</span></a>
             <a href="/app?role=lender">{copy.footer.lender}<span aria-hidden="true">↗</span></a>
-            <a href="/admin">{copy.footer.admin}<span aria-hidden="true">↗</span></a>
           </nav>
         </div>
         <div className="landing-container footer-bottom"><span>© 2026 {copy.footer.rights}</span><span>AIRA / CUET</span></div>

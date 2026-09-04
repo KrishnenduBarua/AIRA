@@ -16,22 +16,28 @@ export default function ChatWidget({ open, onOpen, onClose, mode, ...chatProps }
   return (
     <>
       {!open && (
-        <button
-          type="button"
-          onClick={onOpen}
-          aria-label={t("chat.open")}
-          title={t("chat.open")}
-          className="aira-chat-launcher fixed bottom-5 right-5 z-40 flex h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-brand-700 p-1 shadow-[0_12px_30px_rgba(20,106,85,0.28)] transition hover:scale-105 hover:bg-brand-800 focus-visible:scale-105 sm:bottom-7 sm:right-7"
-        >
-          <img
-            src="/favicon.ico"
-            alt=""
-            width="56"
-            height="56"
-            className="h-full w-full rounded-full bg-white object-cover p-1"
-          />
-          <span className="sr-only">{title}</span>
-        </button>
+        <div className="aira-chat-launcher-wrap fixed bottom-5 right-5 z-40 sm:bottom-7 sm:right-7">
+          <div className="aira-chat-callout" aria-hidden="true">
+            <span className="aira-chat-callout-text">{t("chat.callout")}</span>
+            <span className="aira-chat-callout-arrow">↓</span>
+          </div>
+          <button
+            type="button"
+            onClick={onOpen}
+            aria-label={t("chat.open")}
+            title={t("chat.open")}
+            className="aira-chat-launcher flex h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-brand-700 p-1 shadow-[0_12px_30px_rgba(20,106,85,0.28)] transition hover:scale-105 hover:bg-brand-800 focus-visible:scale-105"
+          >
+            <img
+              src="/favicon.ico"
+              alt=""
+              width="56"
+              height="56"
+              className="h-full w-full rounded-full bg-white object-cover p-1"
+            />
+            <span className="sr-only">{title}</span>
+          </button>
+        </div>
       )}
 
       {open && (
