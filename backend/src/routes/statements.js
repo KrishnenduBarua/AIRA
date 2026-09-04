@@ -8,6 +8,7 @@ const {
   statements,
   saveStatement,
   getStatementsByUser,
+  getUserById,
 } = require("../data/db");
 const { requireAuth } = require("../middlewares/validation");
 const { mlServiceUrl } = require("../config");
@@ -68,6 +69,18 @@ function statementForm(fileBuffer, file, password) {
   return form;
 }
 
+function localPhonePassword(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (digits.startsWith("880") && digits.length >= 13) {
+    return `0${digits.slice(-10)}`;
+  }
+  if (digits.startsWith("88") && digits.length === 13) {
+    return `0${digits.slice(-10)}`;
+  }
+  if (digits.startsWith("01") && digits.length === 11) return digits;
+  return "";
+}
+
 // The ML service reports borrower-fixable problems as
 // { detail: { code, message } }. Those need to reach the borrower as guidance
 // they can act on, not as a generic 500.
@@ -122,8 +135,21 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
 
     const filePath = req.file.path;
     const fileBuffer = fs.readFileSync(filePath);
-    const password =
-      typeof req.body?.password === "string" ? req.body.password.trim() : "";
+    const borrower = await getUserById(req.user.id);
+    if (!borrower || borrower.role !== "borrower") {
+      fs.unlinkSync(filePath);
+      return res.status(403).json({
+        message: "Only borrower accounts can upload statements.",
+      });
+    }
+
+    const password = localPhonePassword(borrower.phoneNumber);
+    if (!password) {
+      fs.unlinkSync(filePath);
+      return res.status(400).json({
+        message: "Your account phone number is not available for statement verification.",
+      });
+    }
 
     const verificationForm = statementForm(fileBuffer, req.file, password);
     const verificationResponse = await axios.post(
