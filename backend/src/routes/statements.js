@@ -156,7 +156,7 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
     const verificationResponse = await axios.post(
       `${mlServiceUrl}/verify-statement`,
       verificationForm,
-      { headers: verificationForm.getHeaders() },
+      { headers: verificationForm.getHeaders(), timeout: 120000 },
     );
 
     if (!verificationResponse.data.valid) {
@@ -173,7 +173,7 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
     const featuresResponse = await axios.post(
       `${mlServiceUrl}/extract-features`,
       featuresForm,
-      { headers: featuresForm.getHeaders() },
+      { headers: featuresForm.getHeaders(), timeout: 120000 },
     );
 
     const storedPath = isStorageConfigured()
@@ -230,10 +230,24 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
       return res.status(known.status).json(known.body);
     }
 
-    console.error("Statement upload error:", error.message);
+    console.error("Statement upload error:", {
+      message: error.message,
+      code: error.code,
+      upstreamStatus: error.response?.status,
+      upstreamData: error.response?.data,
+    });
+    const upstreamUnavailable =
+      error.code === "ECONNABORTED" ||
+      ["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT"].includes(
+        error.code,
+      );
     return res.status(500).json({
-      message: "Failed to process statement upload.",
-      details: error.response?.data || error.message,
+      message: upstreamUnavailable
+        ? "The statement processing service is unavailable."
+        : "Failed to process statement upload.",
+      details: process.env.NODE_ENV === "production"
+        ? undefined
+        : error.response?.data || error.message,
     });
   }
 });

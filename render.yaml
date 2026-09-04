@@ -14,7 +14,7 @@ services:
       - key: PORT
         value: "10000"
       - key: ML_SERVICE_URL
-        sync: false
+        value: http://aira-ml:10000
       - key: DATABASE_URL
         sync: false
       - key: CORS_ORIGINS
