@@ -4,7 +4,7 @@ import { useLanguage } from "../i18n";
 // Keep the YouTube destination in one place so the demo CTA and thumbnail
 // always open the same video.
 const DEMO_VIDEO_URL =
-  "https://youtu.be/dMALdiDzFfw";
+  "https://youtu.be/BY9ewGQG7u0";
 
 const CONTENT = {
   en: {
