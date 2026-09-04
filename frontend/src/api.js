@@ -36,8 +36,11 @@ function apiError(data) {
       ? data.details
       : data.details?.detail || data.details?.message || "";
   const message = data.message || "Something went wrong.";
+  const stage = data.stage ? ` (stage: ${data.stage})` : "";
   const error = new Error(
-    detail && detail !== message ? `${message} ${detail}` : message,
+    detail && detail !== message
+      ? `${message}${stage} ${detail}`
+      : `${message}${stage}`,
   );
   if (data.code) error.code = data.code;
   return error;
@@ -75,7 +78,9 @@ export function uploadWithProgress(path, formData, { onProgress } = {}) {
     });
 
     xhr.addEventListener("error", () =>
-      reject(new Error("We could not reach AIRA. Check your internet connection.")),
+      reject(
+        new Error("We could not reach AIRA. Check your internet connection."),
+      ),
     );
     xhr.addEventListener("abort", () => reject(new Error("Upload cancelled.")));
 
