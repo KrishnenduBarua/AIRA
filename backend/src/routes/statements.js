@@ -252,9 +252,13 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
     const databaseConflict = error.code === "23505";
     const databaseUnavailable =
       stage === "database" &&
-      ["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT", "ENETUNREACH"].includes(
-        error.code,
-      );
+      [
+        "ECONNREFUSED",
+        "ENOTFOUND",
+        "EAI_AGAIN",
+        "ETIMEDOUT",
+        "ENETUNREACH",
+      ].includes(error.code);
     const status = databaseConflict
       ? 409
       : upstreamUnavailable || databaseUnavailable
@@ -265,9 +269,9 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
         ? "The statement processing service is unavailable."
         : databaseUnavailable
           ? "The database service is unavailable."
-        : databaseConflict
-          ? "This statement was already recorded. Please try again."
-          : "Failed to process statement upload.",
+          : databaseConflict
+            ? "This statement was already recorded. Please try again."
+            : "Failed to process statement upload.",
       stage,
       details:
         process.env.NODE_ENV === "production"
