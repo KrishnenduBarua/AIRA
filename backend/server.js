@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const { port, corsOrigins } = require("./src/config");
+const { mlServiceUrl } = require("./src/config");
 
 const authRoutes = require("./src/routes/auth");
 const statementRoutes = require("./src/routes/statements");
@@ -40,6 +41,27 @@ app.use(morgan("dev"));
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "aira-backend" });
+});
+
+app.get("/health/dependencies", async (req, res) => {
+  try {
+    const response = await fetch(`${mlServiceUrl}/health`, {
+      signal: AbortSignal.timeout(10000),
+    });
+    const body = await response.text();
+    return res.status(response.ok ? 200 : 503).json({
+      status: response.ok ? "ok" : "error",
+      mlServiceUrl,
+      mlStatus: response.status,
+      mlBody: body.slice(0, 500),
+    });
+  } catch (error) {
+    return res.status(503).json({
+      status: "error",
+      mlServiceUrl,
+      error: error.code || error.message,
+    });
+  }
 });
 
 app.use("/auth", authRoutes);

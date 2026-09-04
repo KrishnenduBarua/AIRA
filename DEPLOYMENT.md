@@ -21,6 +21,7 @@ The repository is prepared for Git-connected deployment:
 2. Choose **Blueprint** and select `render.yaml`.
 3. Set the backend environment variables marked `sync: false`.
 4. Keep `ML_SERVICE_URL=http://aira-ml:10000` when using the included service name and port. If you rename the ML service, update this to its private Render hostname and port.
+   Test backend-to-ML networking at `https://your-backend.onrender.com/health/dependencies`; it must return `status: "ok"` before statement uploads can work.
 5. Set `CORS_ORIGINS` to the deployed Vercel origin, such as `https://aira.vercel.app`.
 6. Set `DATABASE_URL` to the Supabase connection string. Use SSL if the connection string/provider requires it.
 
