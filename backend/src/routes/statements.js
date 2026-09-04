@@ -248,7 +248,7 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
         ? "The statement processing service is unavailable."
         : databaseConflict
           ? "This statement was already recorded. Please try again."
-        : "Failed to process statement upload.",
+          : "Failed to process statement upload.",
       details:
         process.env.NODE_ENV === "production"
           ? undefined
