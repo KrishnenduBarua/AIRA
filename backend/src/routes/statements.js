@@ -1,4 +1,5 @@
 const express = require("express");
+const { randomUUID } = require("crypto");
 const multer = require("multer");
 const axios = require("axios");
 const FormData = require("form-data");
@@ -193,7 +194,7 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
       fs.unlinkSync(filePath);
 
     const statementRecord = {
-      id: `statement_${Date.now()}`,
+      id: `statement_${randomUUID()}`,
       userId: req.user.id,
       filename: req.file.originalname,
       path: storedPath,
@@ -241,13 +242,17 @@ router.post("/upload", requireAuth, handleUpload, async (req, res) => {
       ["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT"].includes(
         error.code,
       );
-    return res.status(500).json({
+    const databaseConflict = error.code === "23505";
+    return res.status(databaseConflict ? 409 : 500).json({
       message: upstreamUnavailable
         ? "The statement processing service is unavailable."
+        : databaseConflict
+          ? "This statement was already recorded. Please try again."
         : "Failed to process statement upload.",
-      details: process.env.NODE_ENV === "production"
-        ? undefined
-        : error.response?.data || error.message,
+      details:
+        process.env.NODE_ENV === "production"
+          ? undefined
+          : error.response?.data || error.message,
     });
   }
 });

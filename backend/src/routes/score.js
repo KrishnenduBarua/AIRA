@@ -1,4 +1,5 @@
 const express = require("express");
+const { randomUUID } = require("crypto");
 const axios = require("axios");
 const {
   scores,
@@ -146,7 +147,7 @@ router.post("/compute", requireAuth, async (req, res) => {
 
     const payload = mlResponse.data;
     const scoreRecord = {
-      id: `score_${Date.now()}`,
+      id: `score_${randomUUID()}`,
       userId,
       score: payload.score,
       rawClassIndex: payload.rawClassIndex,
