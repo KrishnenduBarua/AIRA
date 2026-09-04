@@ -4,7 +4,7 @@ import { useLanguage } from "../i18n";
 // The exact demo URL was not present in the repository, so this keeps the
 // YouTube destination in one place until the final video URL is supplied.
 const DEMO_VIDEO_URL =
-  "https://www.youtube.com/results?search_query=Finoly+CUET_R2S4+Project+Demo";
+  "https://youtu.be/dMALdiDzFfw";
 
 const CONTENT = {
   en: {
